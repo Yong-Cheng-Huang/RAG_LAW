@@ -1,0 +1,9 @@
+# RAG PDF 問答系統
+
+chroma_db/
+*.pyc
+__pycache__/
+.env
+pdfs/
+.venv/
+chroma_db/
