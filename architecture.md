@@ -143,16 +143,15 @@ metadata:
     │
     ▼  [2] EnsembleRetriever — Hybrid Search
     │
-    │  每個子查詢同時送入兩個 retriever（各取 K=5 筆）：
+    │    每個子查詢同時送入兩個 retriever（各取 K=5 筆）：
     │
-    │  ┌──────────────────────────────────────────────┐
-    │  │  BM25Retriever (weight=0.4)                   │
-    │  │  關鍵字精確匹配，適合條號、業者名稱、金額       │
-    │  │                                                │
-    │  │  VectorRetriever (weight=0.6)                  │
-    │  │  語意相似度，適合語意模糊、同義詞問題            │
-    │  └──────────────────────────────────────────────┘
-    │          ↓ 多個子查詢結果取聯集去重
+    │    BM25Retriever (weight=0.4)                   
+    │    關鍵字精確匹配，適合條號、業者名稱、金額
+    │                                                 
+    │    VectorRetriever (weight=0.6)                  
+    │    語意相似度，適合語意模糊、同義詞問題            
+    │  
+    │    ↓ 多個子查詢結果取聯集去重
     │
     ▼  [3] format_docs() — 格式化 Context
     │
