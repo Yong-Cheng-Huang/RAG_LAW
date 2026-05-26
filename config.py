@@ -11,7 +11,7 @@ load_dotenv()
 
 class Settings:
     # ── LLM ──────────────────────────────────────────────
-    LLM_MODE: str = os.getenv("LLM_MODE", "ollama")  # "ollama" | "openai"
+    LLM_MODE: str = os.getenv("LLM_MODE", "ollama")  # "ollama" | "openai" | "gemini"
 
     # Ollama
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -21,9 +21,19 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
+    # Gemini LLM
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
     # ── Embedding ────────────────────────────────────────
-    # 建議換成 bge-m3 以提升中文法規語意：ollama pull bge-m3
+    # EMBEDDING_MODE: "ollama" | "gemini"
+    EMBEDDING_MODE: str = os.getenv("EMBEDDING_MODE", "ollama")
+
+    # Ollama embedding（預設 bge-m3）
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "bge-m3")
+
+    # Gemini Embedding
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
 
     # ── ChromaDB ─────────────────────────────────────────
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")

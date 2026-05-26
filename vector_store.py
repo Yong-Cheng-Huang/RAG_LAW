@@ -9,6 +9,7 @@ from pathlib import Path
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from config import settings
@@ -23,8 +24,16 @@ _ARTICLE_RE = re.compile(r"第\s*[一二三四五六七八九十百千零\d]+(?:
 _APPENDIX_RE = re.compile(r"附[則表錄]")
 
 
-def get_embeddings() -> OllamaEmbeddings:
-    """取得 Embedding 函數 (via Ollama)。"""
+def get_embeddings() -> OllamaEmbeddings | GoogleGenerativeAIEmbeddings:
+    """取得 Embedding 函數。
+    EMBEDDING_MODE=ollama → Ollama (bge-m3 等)
+    EMBEDDING_MODE=gemini → Google Gemini Embedding 2
+    """
+    if settings.EMBEDDING_MODE == "gemini":
+        return GoogleGenerativeAIEmbeddings(
+            model=settings.GEMINI_EMBEDDING_MODEL,
+            google_api_key=settings.GEMINI_API_KEY or None,
+        )
     return OllamaEmbeddings(
         model=settings.EMBEDDING_MODEL,
         base_url=settings.OLLAMA_BASE_URL,
@@ -134,9 +143,23 @@ def _enrich_chunks_with_headers(chunks: list[Document]) -> list[Document]:
 
 # ── 切割策略 ──────────────────────────────────────────────
 
-def split_documents(documents: list) -> list:
-    """依設定選擇切割策略。"""
-    if settings.LEGAL_CHUNK_MODE:
+# doc_type 對應的切割函數
+# 新增文件類型時，只要在此 dict 加入對應的處理函數即可
+_SPLIT_DISPATCH: dict[str, callable] = {}
+
+
+def split_documents(documents: list, doc_type: str = "legal") -> list:
+    """
+    依 doc_type 選擇切割策略：
+      - 'legal'  → 法規條文語意切割（依「條」邊界）
+      - 'table'  → 表格行分組切割（統計表、處罰案件表等）
+      - 'default'→ 純字元數切割（fallback）
+    """
+    if doc_type in _SPLIT_DISPATCH:
+        return _SPLIT_DISPATCH[doc_type](documents)
+    if doc_type == "table":
+        return _table_split(documents)
+    if settings.LEGAL_CHUNK_MODE and doc_type == "legal":
         return _legal_split(documents)
     return _default_split(documents)
 
@@ -150,34 +173,104 @@ def _default_split(documents: list) -> list:
     return splitter.split_documents(documents)
 
 
+def _table_split(documents: list) -> list[Document]:
+    """
+    表格型文件切割（處罰案件統計表等）：
+    - 自動偵測第一行為 header（欄位名稱列）
+    - 動態計算每批行數，確保 header + 資料行的總字元數不超過 CHUNK_SIZE
+    - 若單行本身就超長，退回 RecursiveCharacterTextSplitter 做二次切割
+    - metadata 加入 doc_type='table' 與 row_start 方便追蹤來源列
+
+    若 PDF 解析後表格結構不規則（欄位散落），建議搭配
+    UnstructuredPDFLoader(mode='elements') 先過濾出 Table element。
+    """
+    
+    TABLE_CHUNK_SIZE = min(settings.CHUNK_SIZE, 800)
+
+    safety_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=TABLE_CHUNK_SIZE,
+        chunk_overlap=0,  # 表格行不做 overlap，避免重複資料列
+        separators=["\n", "。", " ", ""],
+    )
+
+    all_chunks: list[Document] = []
+
+    for doc in documents:
+        lines = [ln for ln in doc.page_content.split("\n") if ln.strip()]
+        if not lines:
+            continue
+
+        # 假設第一行是 header（欄位名稱）
+        header = lines[0]
+        header_len = len(header) + 1  # +1 for "\n"
+        data_lines = lines[1:]
+
+        batch: list[str] = []
+        batch_len = header_len
+        row_start = 1
+
+        def _flush(batch: list[str], row_start: int) -> list[Document]:
+            """將一批行組成 chunk，若超長就用 safety_splitter 二次切割。"""
+            chunk_text = f"{header}\n" + "\n".join(batch)
+            base_meta = {**doc.metadata, "doc_type": "table", "row_start": row_start}
+            if len(chunk_text) <= TABLE_CHUNK_SIZE:
+                return [Document(page_content=chunk_text, metadata=base_meta)]
+            # 超長：safety splitter 切割，每個子 chunk 都保留 header
+            sub_docs = safety_splitter.create_documents([chunk_text], metadatas=[base_meta])
+            return sub_docs
+
+        for line in data_lines:
+            line_len = len(line) + 1  # +1 for "\n"
+
+            # 若單行本身就超過上限，先 flush 現有 batch，再單獨處理這行
+            if line_len > TABLE_CHUNK_SIZE:
+                if batch:
+                    all_chunks.extend(_flush(batch, row_start))
+                    row_start += len(batch)
+                    batch = []
+                    batch_len = header_len
+                all_chunks.extend(_flush([line], row_start))
+                row_start += 1
+                continue
+
+            # 加入此行後會超限 → 先 flush
+            if batch_len + line_len > TABLE_CHUNK_SIZE:
+                all_chunks.extend(_flush(batch, row_start))
+                row_start += len(batch)
+                batch = []
+                batch_len = header_len
+
+            batch.append(line)
+            batch_len += line_len
+
+        # 剩餘尾巴
+        if batch:
+            all_chunks.extend(_flush(batch, row_start))
+
+    return all_chunks
+
+
 def _legal_split(documents: list) -> list:
     """
     法規語意切割：
     1. 注入 CONTEXT 標記
-    2. 以條文邊界 regex 為第一優先分割點
+    2. 直接以 CONTEXT 標記為邊界手動切割（每條嚴格獨立成一個 chunk）
     3. 超長條文再以字元數二次切割
     4. 提取 CONTEXT 標記轉為可讀 header
     """
-    # 條文邊界優先，其次段落、句號
-    # 法規模式用較小的 chunk_size，確保每條條文獨立成一個 chunk
-    # 台灣法條平均約 100-400 字，500 足以容納一條，又不會把多條合併
-    legal_chunk_size = min(settings.CHUNK_SIZE, 500)
-    legal_overlap = min(settings.CHUNK_OVERLAP, 60)
-
-    splitter = RecursiveCharacterTextSplitter(
+    # 超長條文的二次切割器
+    secondary_splitter = RecursiveCharacterTextSplitter(
         separators=[
-            r"\n(?=<<<CONTEXT:)",                                   # CONTEXT 標記前（最優先）
-            r"\n\n(?=第\s*[一二三四五六七八九十百千零\d]+\s*條)",    # A: 條文直接邊界（備援）
-            r"\n(?=第\s*[一二三四五六七八九十百千零\d]+\s*項)",      # 第X項
-            r"\n(?=[一二三四五六七八九十]+、)",                        # 一、二、…
+            r"\n(?=第\s*[一二三四五六七八九十百千零\d]+\s*項)",  # 第X項
+            r"\n(?=[一二三四五六七八九十]+、)",                    # 一、二、…
             "\n\n",
             "\n",
             "。",
             " ",
             "",
         ],
-        chunk_size=legal_chunk_size,
-        chunk_overlap=legal_overlap,
+        chunk_size=settings.CHUNK_SIZE,
+        chunk_overlap=settings.CHUNK_OVERLAP,
         is_separator_regex=True,
         keep_separator=True,
     )
@@ -187,12 +280,22 @@ def _legal_split(documents: list) -> list:
     for doc in documents:
         # 先注入 CONTEXT 標記
         annotated_text = _inject_context_markers(doc.page_content)
-        annotated_doc = Document(
-            page_content=annotated_text,
-            metadata=doc.metadata,
-        )
-        chunks = splitter.split_documents([annotated_doc])
-        all_chunks.extend(chunks)
+
+        # 直接以 <<<CONTEXT: 為邊界切割，每條嚴格獨立
+        parts = re.split(r"\n(?=<<<CONTEXT:)", annotated_text)
+
+        for part in parts:
+            if not part.strip():
+                continue
+
+            if len(part) > settings.CHUNK_SIZE:
+                # 超長條文二次切割
+                sub_chunks = secondary_splitter.create_documents(
+                    [part], metadatas=[doc.metadata]
+                )
+                all_chunks.extend(sub_chunks)
+            else:
+                all_chunks.append(Document(page_content=part, metadata=doc.metadata.copy()))
 
     # 提取標記，轉換為可讀 header
     return _enrich_chunks_with_headers(all_chunks)
@@ -200,15 +303,25 @@ def _legal_split(documents: list) -> list:
 
 # ── 攝取流程 ──────────────────────────────────────────────
 
-def ingest_pdf(file_path: str | Path, display_name: str | None = None) -> int:
+def ingest_pdf(
+    file_path: str | Path,
+    display_name: str | None = None,
+    doc_type: str = "legal",
+) -> int:
     """
-    完整的 PDF 攝取流程：載入 → 切割（法規語意）→ 向量化 → 存入 ChromaDB。
+    完整的 PDF 攝取流程：載入 → 切割 → 向量化 → 存入 ChromaDB。
+
+    doc_type 控制切割策略：
+      - 'legal'   法規條文（依「條」邊界，預設）
+      - 'table'   統計表/處罰案件表（保留 header，固定行數分組）
+      - 'default' 純字元數切割
+
     display_name: 覆蓋存入 metadata 的檔名（例如原始上傳檔名），
                   若不傳則退回使用 file_path 的 basename。
     回傳切割後的 chunk 數量。
     """
     docs = load_pdf(file_path)
-    chunks = split_documents(docs)
+    chunks = split_documents(docs, doc_type=doc_type)
 
     if not chunks:
         return 0
@@ -217,6 +330,7 @@ def ingest_pdf(file_path: str | Path, display_name: str | None = None) -> int:
     filename = display_name or Path(file_path).name
     for chunk in chunks:
         chunk.metadata["source_file"] = filename
+        chunk.metadata.setdefault("doc_type", doc_type)
 
     db = get_vector_store()
     db.add_documents(chunks)

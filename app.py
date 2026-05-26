@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import streamlit as st
 import tempfile
 import os
+import time
 
 from config import settings
 from vector_store import ingest_pdf, get_all_sources, delete_collection
@@ -27,24 +28,44 @@ st.set_page_config(
 # ── 自訂 CSS ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    .stApp {
-        max-width: 1200px;
-        margin: 0 auto;
+    /* 主內容區域寬度控制（sidebar 維持靠左）*/
+    .main .block-container {
+        max-width: 900px;
+        padding-left: 2rem;
+        padding-right: 2rem;
     }
+
+    /* 聊天訊息容器優化 */
     .chat-message {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 0.5rem;
+        padding: 1.2rem;
+        border-radius: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border-left: 5px solid #1a5276; /* 加入邊框標識 */
+        background-color: #f9f9f9;
     }
+
+    /* 來源標籤優化 */
     .source-tag {
         display: inline-block;
         background: #e8f4f8;
         color: #1a5276;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        margin: 2px;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 4px;
+        border: 1px solid #d1e7ed;
+        transition: all 0.3s ease;
     }
+    
+    .source-tag:hover {
+        background: #1a5276;
+        color: white;
+    }
+
+    /* 隱藏預設 Streamlit 頁尾 */
+    footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,6 +74,8 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "ingested_files" not in st.session_state:
     st.session_state.ingested_files = []
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 # ── 側邊欄 ───────────────────────────────────────────────
 with st.sidebar:
@@ -61,10 +84,23 @@ with st.sidebar:
     st.markdown("---")
 
     # 模式顯示
-    mode_label = "🟢 本地模式 (Ollama)" if settings.LLM_MODE == "ollama" else "☁️ 雲端模式 (OpenAI)"
+    if settings.LLM_MODE == "ollama":
+        mode_label = "🟢 本地模式 (Ollama)"
+        llm_name = settings.OLLAMA_MODEL
+    elif settings.LLM_MODE == "gemini":
+        mode_label = "✨ 雲端模式 (Gemini)"
+        llm_name = settings.GEMINI_MODEL
+    else:
+        mode_label = "☁️ 雲端模式 (OpenAI)"
+        llm_name = settings.OPENAI_MODEL
     st.info(f"**目前模式：** {mode_label}")
-    st.caption(f"**LLM：** `{settings.OLLAMA_MODEL if settings.LLM_MODE == 'ollama' else settings.OPENAI_MODEL}`")
-    st.caption(f"**Embedding：** `{settings.EMBEDDING_MODEL}`")
+    st.caption(f"**LLM：** `{llm_name}`")
+    emb_display = (
+        f"gemini / {settings.GEMINI_EMBEDDING_MODEL}"
+        if settings.EMBEDDING_MODE == "gemini"
+        else f"ollama / {settings.EMBEDDING_MODEL}"
+    )
+    st.caption(f"**Embedding：** `{emb_display}`")
 
     st.markdown("---")
 
@@ -75,13 +111,25 @@ with st.sidebar:
         type=["pdf"],
         accept_multiple_files=True,
         help="支援多檔上傳，系統將自動解析並建立索引。",
+        key=f"uploader_{st.session_state.uploader_key}",
     )
 
     if uploaded_files:
+        doc_type = st.selectbox(
+            "📋 文件類型",
+            options=[
+                ("法規條文（依條切割）", "legal"),
+                ("統計表 / 處罰案件表（表格切割）", "table"),
+                ("一般文件（字元數切割）", "default"),
+            ],
+            format_func=lambda x: x[0],
+            help="不同文件類型使用不同切割策略，影響 RAG 召回品質。",
+        )[1]
+
         if st.button("🚀 開始攝取", use_container_width=True):
+            all_success = True
             for uploaded_file in uploaded_files:
                 with st.spinner(f"正在處理: {uploaded_file.name}..."):
-                    # 暫存上傳檔案
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".pdf"
                     ) as tmp:
@@ -89,15 +137,25 @@ with st.sidebar:
                         tmp_path = tmp.name
 
                     try:
-                        chunk_count = ingest_pdf(tmp_path, display_name=uploaded_file.name)
+                        chunk_count = ingest_pdf(
+                            tmp_path,
+                            display_name=uploaded_file.name,
+                            doc_type=doc_type,
+                        )
                         st.success(
                             f"✅ **{uploaded_file.name}** — 切割為 {chunk_count} 個片段"
                         )
                         st.session_state.ingested_files.append(uploaded_file.name)
                     except Exception as e:
                         st.error(f"❌ {uploaded_file.name} 處理失敗: {e}")
+                        all_success = False
                     finally:
                         os.unlink(tmp_path)
+
+            # 讓使用者看到成功/失敗訊息後再清空 uploader
+            time.sleep(1.5)
+            st.session_state.uploader_key += 1
+            st.rerun()
 
     st.markdown("---")
 
