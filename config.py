@@ -16,6 +16,8 @@ class Settings:
     # Ollama
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
+    # MultiQueryRetriever 專用 model（留空則與 OLLAMA_MODEL 相同）
+    MULTIQUERY_MODEL: str = os.getenv("MULTIQUERY_MODEL", "")
 
     # OpenAI
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
