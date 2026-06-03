@@ -1,320 +1,335 @@
-# RAG PDF 知識庫問答系統 — 架構文件
+# RAG PDF 知識庫問答系統架構
 
-## 專案概覽
-
-本系統是一個針對**台灣食品法規 PDF** 設計的 RAG（Retrieval-Augmented Generation）問答系統。
-使用者上傳 PDF 後，系統自動依文件類型選擇切割策略建立向量索引；提問時透過 Hybrid Search 找到最相關文件片段，再由 LLM 生成結構化答案。
+本專案是一個以 Streamlit 建置的 PDF RAG 問答系統，主要服務台灣食品法規、食品標示與廣告合規審查情境。系統支援上傳 PDF、依文件類型切割內容、建立 ChromaDB 向量索引，並在提問時結合 BM25、向量搜尋、MultiQueryRetriever 與裁罰案例專用檢索，產生具來源依據的繁體中文回答。
 
 ---
 
-## 系統架構總覽
+## 1. 系統總覽
 
 ```mermaid
 flowchart TB
-    UI["🖥️ 使用者 (Streamlit UI)\n選擇文件類型 → 上傳 PDF　｜　輸入問題"]
+    User["使用者"]
+    UI["app.py\nStreamlit UI"]
 
-    subgraph 攝取流程
-        VS["vector_store.py\n依 doc_type 切割"]
-        DB1["ChromaDB (本地持久化)"]
-        VS --> DB1
+    subgraph Ingestion["PDF 攝取流程"]
+        Loader["UnstructuredPDFLoader\n載入 PDF"]
+        Splitter["vector_store.py\n依 doc_type 切割"]
+        Embed["Embedding\nOllama 或 Gemini"]
+        ChromaWrite["ChromaDB\n寫入 chunks"]
     end
 
-    subgraph 查詢流程
-        LC["llm_chain.py\nHybrid Search + RAG 鏈"]
-        DB2["ChromaDB + BM25 索引"]
-        DB2 --> LC
+    subgraph Retrieval["查詢與生成流程"]
+        MQ["MultiQueryRetriever\n產生 3 個查詢變體"]
+        Hybrid["Hybrid Search\nBM25 + Vector"]
+        Penalty["Penalty Case Retriever\n裁罰案例 BM25"]
+        Context["format_docs()\n組裝 context"]
+        LLM["LLM\nOllama / OpenAI / Gemini"]
     end
 
-    UI -->|"PDF + doc_type"| VS
-    UI -->|"問題"| LC
-    DB1 <-->|"向量讀寫"| DB2
-    LC -->|"答案"| UI
+    User --> UI
+    UI -->|"PDF + 文件類型"| Loader
+    Loader --> Splitter --> Embed --> ChromaWrite
+
+    UI -->|"問題"| MQ
+    MQ --> Hybrid
+    Hybrid --> Context
+    Penalty --> Context
+    ChromaWrite <--> Hybrid
+    ChromaWrite <--> Penalty
+    Context --> LLM --> UI
 ```
+
+核心資料庫為本地 ChromaDB，預設目錄是 `./chroma_db`，collection 名稱是 `pdf_knowledge_base`。BM25 索引不持久化，每次查詢時從 ChromaDB 取出所有文件後在記憶體中建立。
 
 ---
 
-## 一、PDF 攝取流程（Ingestion Pipeline）
-
-使用者在 sidebar 選擇**文件類型**後點擊「開始攝取」，`ingest_pdf(file_path, doc_type)` 依序執行：
-
-```
-PDF 檔案
-    │
-    ▼  [1] 載入
-UnstructuredPDFLoader
-    │  → list[Document]（PDF 純文字 + source metadata）
-    │
-    ▼  [2] 依 doc_type 選擇切割策略
-split_documents(docs, doc_type)
-    ├── "legal"   → _legal_split()    ← 法規條文（預設）
-    ├── "table"   → _table_split()    ← 統計表/處罰案件表
-    └── "default" → _default_split()  ← 純字元數（fallback）
-    │
-    ▼  [3a] 法規語意切割 _legal_split()
-    │
-    │  (i)  注入 CONTEXT 標記
-    │       掃描每一行，遇到「第X章/節/條」或「附則/附表」時插入：
-    │       <<<CONTEXT:第一章總則 | 第1條>>>
-    │
-    │  (ii) 以 <<<CONTEXT: 為邊界手動切割（每條嚴格獨立一個 chunk）
-    │       超長條文再以 secondary_splitter 二次切割：
-    │       Separator 優先：第X項 > 一、二、 > \n\n > \n > 。
-    │
-    │  (iii) 提取 CONTEXT → 可讀 Header
-    │       <<<CONTEXT:第一章總則 | 第1條>>>
-    │                  ↓ 轉換
-    │       [第一章總則 | 第1條]（注入 page_content 開頭）
-    │       chapter = "第一章總則"  → metadata
-    │       article = "第1條"       → metadata
-    │
-    ▼  [3b] 表格切割 _table_split()
-    │       TABLE_CHUNK_SIZE = min(CHUNK_SIZE, 800)
-    │       - 第一行視為 header（欄位名稱列）
-    │       - 依字元長度動態分批：batch_len + 下一行 > 800 → flush
-    │       - 每個 chunk 都保留 header 列
-    │       - 超長單行：safety_splitter 二次切割（overlap=0）
-    │       - metadata 加入 doc_type="table" 和 row_start
-    │
-    ▼  [3c] 預設切割 _default_split()
-    │       RecursiveCharacterTextSplitter
-    │       chunk_size = CHUNK_SIZE（預設 1000）
-    │       chunk_overlap = CHUNK_OVERLAP（預設 200）
-    │
-    ▼  [4] 加入 metadata
-    │       chunk.metadata["source_file"] = 顯示檔名
-    │       chunk.metadata["doc_type"]    = doc_type（若未設定）
-    │
-    ▼  [5] 向量化 & 存入 ChromaDB
-    │       Embedding 模式由 EMBEDDING_MODE 決定：
-    │       - "ollama" → OllamaEmbeddings（bge-m3 等）
-    │       - "gemini" → GoogleGenerativeAIEmbeddings（gemini-embedding-001）
-    │       持久化目錄：./chroma_db
-    │       Collection：pdf_knowledge_base
-    │
-    ▼  [6] 回傳 chunk 數量 → UI 顯示成功訊息 → 1.5s 後自動清空 uploader
-```
-
-### 切割後 Chunk 樣式範例
-
-**法規文件（legal）：**
-```
-page_content:
-  [第一章總則 | 第1條]
-  第 1 條
-
-  為加強健康食品之管理與監督，維護國民健康，並保障消費者之
-  權益，特制定本法；本法未規定者，適用其他有關法律之規定。
-
-metadata:
-  source_file: "健康食品管理法.pdf"
-  doc_type:    "legal"
-  chapter:     "第一章總則"
-  article:     "第1條"
-```
-
-**統計表（table）：**
-```
-page_content:
-  違規業者	產品名稱	違規宣稱	違反法規	裁罰金額    ← header 每個 chunk 都保留
-  XX生技股份有限公司  護肝膠囊  具有護肝效果  健食法第14條  60,000元
-  OO食品有限公司     薑黃錠    改善肝功能    健食法第14條  40,000元
-
-metadata:
-  source_file: "處罰案件統計表.pdf"
-  doc_type:    "table"
-  row_start:   1
-```
-
----
-
-## 二、查詢流程（Query Pipeline）
-
-使用者送出問題後，`ask(question)` → `build_rag_chain()` 依序執行：
-
-```
-使用者問題：「宣稱薑黃護肝合法嗎？」
-    │
-    ▼  [1] MultiQueryRetriever — 擴充查詢
-    │
-    │  LLM 生成 3 個不同角度的子查詢：
-    │  → 「薑黃護肝療效宣稱法規」
-    │  → 「健康食品廣告宣稱限制」
-    │  → 「食品涉及醫療效能處罰」
-    │
-    ▼  [2] EnsembleRetriever — Hybrid Search
-    │
-    │    每個子查詢同時送入兩個 retriever（各取 K=5 筆）：
-    │
-    │    BM25Retriever (weight=0.4)                   
-    │    關鍵字精確匹配，適合條號、業者名稱、金額
-    │                                                 
-    │    VectorRetriever (weight=0.6)                  
-    │    語意相似度，適合語意模糊、同義詞問題            
-    │  
-    │    ↓ 多個子查詢結果取聯集去重
-    │
-    ▼  [3] format_docs() — 格式化 Context
-    │
-    │  [文件 1 | 來源: 健康食品管理法.pdf]
-    │  [第一章總則 | 第2條]
-    │  ...條文內容...
-    │
-    │  ---
-    │
-    │  [文件 2 | 來源: 處罰案件統計表.pdf]
-    │  違規業者	產品	...
-    │
-    ▼  [4] RAG Prompt — 組裝最終 Prompt
-    │
-    │  依問題類型 A / B / C 回答：
-    │  A：法規查詢 → 條文 blockquote + 重點說明 + 常見違規
-    │  B：合規審查 → 違規詞表 + 判罰實例表 + 建議修改對比表
-    │  C：一般諮詢 → TL;DR 摘要 + 詳細說明
-    │
-    ▼  [5] LLM 生成答案
-    │
-    │  LLM_MODE = "ollama"  → ChatOllama（本地）
-    │  LLM_MODE = "openai"  → ChatOpenAI
-    │  LLM_MODE = "gemini"  → ChatGoogleGenerativeAI
-    │  temperature = 0（確保確定性輸出）
-    │
-    ▼  [6] StrOutputParser → 純文字答案 → Streamlit 顯示
-```
-
----
-
-## 三、模組職責
+## 2. 主要模組
 
 | 檔案 | 職責 |
-|------|------|
-| [app.py](file:///Users/frank/Desktop/RAG/app.py) | Streamlit UI、PDF 上傳（含文件類型選擇）、攝取後自動清空 uploader、對話介面 |
-| [vector_store.py](file:///Users/frank/Desktop/RAG/vector_store.py) | PDF 載入、三種切割策略（legal/table/default）、ChromaDB 讀寫 |
-| [llm_chain.py](file:///Users/frank/Desktop/RAG/llm_chain.py) | Hybrid Search、MultiQueryRetriever、RAG Chain 組裝、System Prompt |
-| [config.py](file:///Users/frank/Desktop/RAG/config.py) | 所有參數集中管理（從 .env 讀取） |
+|---|---|
+| [app.py](/Users/frank/Desktop/RAG/app.py) | Streamlit 介面、PDF 上傳、文件類型選擇、攝取觸發、知識庫清空、對話顯示 |
+| [config.py](/Users/frank/Desktop/RAG/config.py) | 從 `.env` 讀取 LLM、Embedding、Chroma、切割與檢索參數 |
+| [vector_store.py](/Users/frank/Desktop/RAG/vector_store.py) | PDF 載入、文件切割、Embedding 建立、ChromaDB 寫入與讀取 |
+| [llm_chain.py](/Users/frank/Desktop/RAG/llm_chain.py) | LLM 建立、Hybrid Retriever、裁罰案例 Retriever、RAG prompt 與 chain 組裝 |
 
 ---
 
-## 四、關鍵設定（config.py / .env）
+## 3. PDF 攝取流程
 
-| 參數 | 預設值 | 說明 |
-|------|--------|------|
-| `LLM_MODE` | `ollama` | `ollama` / `openai` / `gemini` |
-| `OLLAMA_MODEL` | `llama3` | 本地 LLM 模型名稱 |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama 服務位址 |
-| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI 模型名稱 |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini LLM 模型 |
-| `EMBEDDING_MODE` | `ollama` | `ollama` 或 `gemini` |
-| `EMBEDDING_MODEL` | `bge-m3` | Ollama Embedding 模型 |
-| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Gemini Embedding 模型（context limit ≈ 2048 tokens） |
-| `CHUNK_SIZE` | `1000` | 一般切割上限字元數；表格模式強制取 min(1000, 800)=800 |
-| `CHUNK_OVERLAP` | `200` | 重疊字元數（表格模式 overlap=0） |
-| `LEGAL_CHUNK_MODE` | `true` | 啟用法規語意切割（doc_type="legal" 時生效） |
-| `RETRIEVER_K` | `5` | 每個 retriever 各取幾份文件 |
-| `BM25_WEIGHT` | `0.4` | BM25 在 Hybrid Search 的權重（Vector 佔 0.6） |
-| `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB 持久化路徑 |
-| `CHROMA_COLLECTION` | `pdf_knowledge_base` | ChromaDB collection 名稱 |
-
----
-
-## 五、Regex 邊界識別規則（法規切割用）
+使用者在 sidebar 上傳 PDF 並選擇文件類型後，`app.py` 呼叫：
 
 ```python
-_CHAPTER_RE  = r"第\s*[一二三四五六七八九十百千零\d]+\s*章[^\n]{0,30}"
-_SECTION_RE  = r"第\s*[一二三四五六七八九十百千零\d]+\s*節[^\n]{0,30}"
-_ARTICLE_RE  = r"第\s*[一二三四五六七八九十百千零\d]+(?:-\d+)?\s*條"
-#                                                      ^^^^^^^
-#              ↑ \s* 允許 PDF 空格格式如「第 一 章」
-#                                          允許複合條號如「第 56-1 條」
-_APPENDIX_RE = r"附[則表錄]"
+ingest_pdf(tmp_path, display_name=uploaded_file.name, doc_type=doc_type)
 ```
+
+流程如下：
+
+1. `load_pdf()` 使用 `UnstructuredPDFLoader` 將 PDF 轉成 LangChain `Document`。
+2. `split_documents()` 依 `doc_type` 選擇切割策略。
+3. 每個 chunk 補上 `source_file` 與 `doc_type` metadata。
+4. `get_vector_store()` 建立 ChromaDB client 與 embedding function。
+5. `db.add_documents(chunks)` 將 chunk 向量化後寫入 ChromaDB。
+6. 回傳 chunk 數量給 UI 顯示。
+
+### 3.1 文件類型與切割策略
+
+| `doc_type` | 使用情境 | 策略 |
+|---|---|---|
+| `legal` | 法規條文 | 依章、節、條、附則或附表建立上下文標記，再以條文邊界切割 |
+| `table` | 統計表、處罰案件表 | 優先抽取一案一筆的裁罰案例；若無金額線索，改用表格 header + 行分組 |
+| `default` | 一般文件 | 使用 `RecursiveCharacterTextSplitter` 依字元數切割 |
+
+### 3.2 法規文件切割
+
+`legal` 模式由 `_legal_split()` 處理，目標是避免不同條文混在同一個 chunk 中。
+
+流程：
+
+1. `_inject_context_markers()` 掃描每一行，偵測章、節、條、附則與附表。
+2. 遇到條文或附錄邊界時插入 `<<<CONTEXT:...>>>` 標記。
+3. 以 `<<<CONTEXT:` 作為主要邊界，讓每一條法規盡量獨立成 chunk。
+4. 超過 `CHUNK_SIZE` 的長條文再用 secondary splitter 二次切割。
+5. `_enrich_chunks_with_headers()` 將 context 標記轉為可讀 header，並寫入 `chapter`、`article` metadata。
+
+法規 chunk 範例：
+
+```text
+[第一章總則 | 第1條]
+第 1 條
+
+為加強健康食品之管理與監督，維護國民健康，並保障消費者之權益...
+```
+
+metadata 範例：
+
+```text
+source_file = "健康食品管理法.pdf"
+doc_type = "legal"
+chapter = "第一章總則"
+article = "第1條"
+```
+
+### 3.3 表格與裁罰案件切割
+
+`table` 模式由 `_table_split()` 處理，分成兩層：
+
+第一層是裁罰案件抽取。系統會在資料行中尋找罰鍰、裁罰金額、新臺幣等金額線索。若找到可解析金額，會建立 `doc_type="penalty_case"` 的文件，一案一筆，並補上：
+
+```text
+row_start
+penalty_amount_text
+penalty_amount
+```
+
+裁罰案例 chunk 範例：
+
+```text
+[裁罰案件]
+欄位：業者 產品 宣稱 違反法規 裁罰金額
+某公司 某產品 宣稱改善疾病 食品安全衛生管理法 新臺幣六萬元
+抽取罰鍰金額：新臺幣六萬元
+```
+
+第二層是一般表格行分組。若沒有抽到裁罰金額，系統會：
+
+1. 將第一行視為 header。
+2. 以 `TABLE_CHUNK_SIZE = min(CHUNK_SIZE, 800)` 控制每個 chunk 大小。
+3. 每個 chunk 都保留 header，避免資料列失去欄位語意。
+4. 表格切割使用 `chunk_overlap=0`，避免重複資料列造成案例或金額誤判。
+
+### 3.4 一般文件切割
+
+`default` 模式使用：
+
+```python
+RecursiveCharacterTextSplitter(
+    chunk_size=settings.CHUNK_SIZE,
+    chunk_overlap=settings.CHUNK_OVERLAP,
+)
+```
+
+此模式適合不具明確條文或表格結構的 PDF。`CHUNK_OVERLAP` 只影響一般切割與法規超長條文的二次切割，不影響表格模式。
 
 ---
 
-## 六、LLM 回答格式（System Prompt 指定）
+## 4. 查詢流程
 
-### 全域法條引用規範（所有類型適用）
+使用者輸入問題後，`app.py` 呼叫 `ask(question)`，由 `llm_chain.py` 建立 RAG chain。
 
-- 必須標明：法規名稱 + 第X條 + 第X項（若有）
-- 必須逐字引用條文原文，不得說「依法不可」或「根據相關規定」
-- 格式：`依 [來源檔名] 第X條第X項：『條文原文』`
-- 多條法條全部逐條列出，不得合併省略
+```mermaid
+sequenceDiagram
+    participant UI as app.py
+    participant Chain as llm_chain.py
+    participant Chroma as ChromaDB
+    participant LLM as LLM
 
-### 類型 A：法規查詢
-```
-**[法規名稱]**
-
-**第 X 條 第 X 項（條文標題或簡述）**
-> 「條文原文逐字引用，不得刪減或改寫」
-> — 來源：[檔名]
-
-**重點說明：**
-- 拆解條文各項要求，逐點說明；若有子項（款）請逐款列出
-
-**常見違規情境：**
-- 舉例說明哪些行為容易觸法，並對應至具體條號
+    UI->>Chain: ask(question)
+    Chain->>Chain: build_rag_chain()
+    Chain->>LLM: MultiQuery 產生查詢變體
+    Chain->>Chroma: Vector search
+    Chain->>Chroma: 取出所有文件建立 BM25
+    Chain->>Chain: EnsembleRetriever 合併 BM25 + Vector
+    Chain->>Chain: Penalty BM25 合入裁罰案例
+    Chain->>LLM: RAG prompt + context + question
+    LLM-->>UI: Markdown 回答
 ```
 
-### 類型 B：廣告/標示合規性審查（三段式，不得省略）
+查詢階段包含三種召回來源：
+
+| 來源 | 目的 |
+|---|---|
+| Vector retriever | 取得語意相近的法規、案例與一般內容 |
+| BM25 retriever | 強化條號、業者名稱、產品名稱、金額、關鍵詞等精確匹配 |
+| Penalty case retriever | 專門從 `penalty_case` 與 `table` 文件中找出裁罰實例 |
+
+### 4.1 MultiQueryRetriever
+
+`MULTI_QUERY_PROMPT` 要求 LLM 將原始問題改寫成 3 個不同搜尋查詢。這可以提高召回率，尤其適合使用者用口語問法詢問法規概念時，補上法律術語與相關同義詞。
+
+Ollama 模式下可設定 `MULTIQUERY_MODEL` 使用較輕量模型；若未設定，則沿用 `OLLAMA_MODEL`。MultiQuery 的 Ollama LLM 使用 `keep_alive=0`，降低和主生成模型同時佔用本機記憶體的風險。
+
+### 4.2 Hybrid Search
+
+`get_retriever()` 會先建立向量 retriever，再從 ChromaDB 取出全部文件建立 BM25 retriever。
+
+若知識庫內有文件：
+
+```text
+base_retriever = EnsembleRetriever(
+    retrievers=[BM25Retriever, VectorRetriever],
+    weights=[BM25_WEIGHT, 1.0 - BM25_WEIGHT],
+)
 ```
-**🔍 審查宣稱**
-> 「使用者的宣稱完整複述」
+
+若知識庫為空或無法建立 BM25 文件，則降級為純向量搜尋。
+
+### 4.3 裁罰案例補強
+
+一般 Hybrid Search 可能因語意不完全相似而漏掉表格中的實際裁罰案例，因此 `build_rag_chain()` 會額外呼叫 `get_penalty_case_retriever()`。
+
+此 retriever 僅使用：
+
+```text
+doc_type in {"penalty_case", "table"}
+```
+
+並以 `PENALTY_CASE_K` 控制候選數。結果會和主要檢索文件合併、去重後一起送入 prompt。
+
+### 4.4 Context 格式
+
+`format_docs()` 會保留來源、類型與裁罰金額 metadata：
+
+```text
+[文件 1 | 類型: penalty_case | 來源: 裁罰案件.pdf | 抽取罰鍰金額: 新臺幣六萬元 | 罰鍰金額元: 60000]
+[裁罰案件]
+...
+```
+
+這些 metadata 會協助 LLM 在回答中填寫來源、案例與罰鍰金額。
 
 ---
-**⚖️ ① 法規依據 — 為何不可以這樣宣稱？**
 
-違規詞標注表格：
-| 違規詞彙 | 違規類型 | 風險等級 |
-（🔴 高 / 🟡 中 / 🟢 低）
+## 5. LLM 回答策略
 
-相關法條（本文 + 罰則各自獨立引用原文）：
-• 依 [檔名] 第X條第X項：「條文原文」
-  → 具體說明哪個詞句違反該條文
-• 依 [檔名] 第X條第X項（罰則）：「罰則原文」
-  → 對應裁罰後果
+`SYSTEM_PROMPT` 將問題分為三類，並強制使用對應格式。
 
----
-**📊 ② 判罰實例 — 類似案件如何被裁罰？**
-| # | 違規業者/產品 | 違規宣稱內容 | 違反法規 | 裁罰金額/處分 | 資料來源 |
-（3～5 筆，來自統計表 PDF 的 table chunks）
+| 類型 | 觸發情境 | 回答重點 |
+|---|---|---|
+| A 法規內容查詢 | 詢問條文內容、法規要求 | 法規名稱、條文原文、來源、重點說明、常見違規情境 |
+| B 廣告或標示合規審查 | 詢問宣稱是否合法、是否違規、涉及廣告或標示文字 | 違規詞標注、相關法條、判罰實例、建議修改 |
+| C 一般諮詢 | 不屬於 A 或 B 的問題 | 一句話摘要、詳細說明、相關法條與參考文件 |
 
----
-**✅ ③ 建議修改 — 如何改成合法說法？**
-對比表（❌ 原句 vs ✅ 建議）+ 修改原則 checklist
-```
+重要約束：
 
-### 類型 C：一般諮詢
-```
-**💬 [問題主題]**
-
-**TL;DR（一句話摘要）：** 30字內核心答案
-
-詳細說明（綜合文件與專業知識，結構化列點）
-
-**📌 相關法條（如有引用請逐條列出）：**
-• 依 [檔名] 第X條第X項：「條文原文」
-  → 說明此條文與問題的關聯
-```
-
+- 所有回答使用繁體中文。
+- 優先引用參考文件，文件不足時才補充一般法規知識。
+- 法條引用必須標示來源檔名、第 X 條、第 X 項；若有款或目也要列出。
+- 引用法條時必須逐字引用原文，不得只用概括說法。
+- 表格只放短內容，長法條放在表格外。
+- 裁罰金額只能使用參考文件中明確記載或抽取出的金額。
 
 ---
 
-## 七、UI 流程（app.py）
+## 6. 重要設定
 
-```
-側邊欄
-  ├── 顯示目前 LLM / Embedding 模式
-  ├── 📄 上傳 PDF（支援多檔，key 動態更換以支援清空）
-  │     ├── 選擇文件類型：法規條文 / 統計表 / 一般文件
-  │     └── 🚀 開始攝取
-  │           → 逐檔處理 → 顯示 ✅/❌
-  │           → time.sleep(1.5)（讓使用者看到訊息）
-  │           → uploader_key += 1 → st.rerun()（清空 uploader）
-  │
-  ├── 📂 知識庫內容（列出已攝取的所有 source_file）
-  ├── 🗑️ 清空知識庫
-  └── 🔄 清空對話記錄
+設定集中於 [config.py](/Users/frank/Desktop/RAG/config.py)，可透過 `.env` 覆蓋。
 
-主畫面
-  ├── 顯示對話歷史（st.chat_message）
-  └── 使用者輸入 → ask() → 顯示 AI 回答
+| 參數 | 預設值 | 說明 |
+|---|---:|---|
+| `LLM_MODE` | `ollama` | LLM 來源：`ollama`、`openai`、`gemini` |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API 位址 |
+| `OLLAMA_MODEL` | `llama3` | 主生成用 Ollama 模型 |
+| `MULTIQUERY_MODEL` | 空字串 | MultiQuery 專用模型；空值代表使用 `OLLAMA_MODEL` |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI 模型名稱 |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini 生成模型 |
+| `EMBEDDING_MODE` | `ollama` | Embedding 來源：`ollama` 或 `gemini` |
+| `EMBEDDING_MODEL` | `bge-m3` | Ollama embedding 模型 |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Gemini embedding 模型 |
+| `CHROMA_PERSIST_DIR` | `./chroma_db` | ChromaDB 持久化目錄 |
+| `CHROMA_COLLECTION` | `pdf_knowledge_base` | ChromaDB collection |
+| `CHUNK_SIZE` | `1000` | 一般 chunk 大小；表格會再限制為最多 800 |
+| `CHUNK_OVERLAP` | `200` | 一般文件與法規超長條文二次切割的重疊字元數 |
+| `LEGAL_CHUNK_MODE` | `true` | `doc_type="legal"` 時是否啟用法規語意切割 |
+| `RETRIEVER_K` | `5` | 一般 BM25 與 Vector retriever 各取的文件數 |
+| `PENALTY_CASE_K` | `25` | 裁罰案例專用 BM25 候選數 |
+| `BM25_WEIGHT` | `0.4` | Hybrid Search 中 BM25 權重；向量權重為 `1.0 - BM25_WEIGHT` |
+| `PDF_DIR` | `./pdfs` | 預留 PDF 目錄設定，目前上傳流程使用暫存檔 |
+
+---
+
+## 7. Metadata 設計
+
+所有寫入 ChromaDB 的 chunk 都會至少包含：
+
+```text
+source_file
+doc_type
 ```
+
+不同文件類型會額外加入 metadata：
+
+| 文件類型 | 額外 metadata | 用途 |
+|---|---|---|
+| `legal` | `chapter`, `article` | 保留章節與條號，用於引用與檢索判讀 |
+| `table` | `row_start` | 追蹤表格 chunk 起始資料列 |
+| `penalty_case` | `row_start`, `penalty_amount_text`, `penalty_amount` | 支援判罰實例與罰鍰金額回答 |
+
+---
+
+## 8. 擴充點
+
+### 新增文件切割策略
+
+`vector_store.py` 保留 `_SPLIT_DISPATCH` 作為擴充點。新增策略時可建立新的 split function，並註冊：
+
+```python
+_SPLIT_DISPATCH["new_type"] = _new_type_split
+```
+
+UI 若要開放新類型，需同步修改 `app.py` sidebar 的 `selectbox` options。
+
+### 新增 LLM 或 Embedding Provider
+
+新增 LLM provider 時修改 `llm_chain.py` 的 `get_llm()` 與必要設定。新增 embedding provider 時修改 `vector_store.py` 的 `get_embeddings()` 與 [config.py](/Users/frank/Desktop/RAG/config.py)。
+
+### 調整召回品質
+
+常用調整方向：
+
+| 目標 | 建議調整 |
+|---|---|
+| 條文漏召回 | 提高 `RETRIEVER_K`，或降低 `BM25_WEIGHT` 讓向量搜尋比重提高 |
+| 條號、業者名稱、金額不準 | 提高 `BM25_WEIGHT` |
+| 裁罰案例不足 | 提高 `PENALTY_CASE_K`，並確認表格 PDF 是否能被解析成含金額的文字列 |
+| 回答 context 過長 | 降低 `RETRIEVER_K` 或 `PENALTY_CASE_K` |
+| chunk 過碎或過長 | 調整 `CHUNK_SIZE`；一般文件可再調整 `CHUNK_OVERLAP` |
+
+---
+
+## 9. 已知限制
+
+- `UnstructuredPDFLoader` 對掃描版 PDF 或複雜表格的解析品質會直接影響切割與召回結果。
+- BM25 每次從 ChromaDB 取出所有文件後建立，文件量很大時查詢延遲會上升。
+- 裁罰案件抽取依賴文字中可辨識的金額格式；若 PDF 將金額拆散成多欄或多行，可能需要更細的表格解析策略。
+- ChromaDB collection 清空是全量操作，`delete_collection()` 不區分來源檔案。
+- Prompt 要求 LLM 逐字引用條文，但最終輸出仍受檢索品質與模型遵循度影響。
