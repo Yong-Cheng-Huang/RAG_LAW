@@ -22,6 +22,38 @@ _SECTION_RE = re.compile(r"第\s*[一二三四五六七八九十百千零\d]+\s*
 # _ARTICLE_RE = re.compile(r"第\s*[一二三四五六七八九十百千零\d]+\s*條")
 _ARTICLE_RE = re.compile(r"第\s*[一二三四五六七八九十百千零\d]+(?:-\d+)?\s*條")
 _APPENDIX_RE = re.compile(r"附[則表錄]")
+_PENALTY_AMOUNT_RE = re.compile(
+    r"(?:新臺幣|新台幣|罰鍰|裁罰金額|罰鍰金額|處罰鍰|處以罰鍰|處)?"
+    r"\s*([0-9０-９一二三四五六七八九十百千萬億兩壹貳參肆伍陸柒捌玖拾佰仟萬億,.，]+)"
+    r"\s*(?:元|圓|萬元|萬|千元)"
+)
+_CASE_NO_RE = re.compile(r"^\s*(?:\d+|[一二三四五六七八九十]+)[\.、\s]")
+_DATE_RE = re.compile(r"^\s*\d{2,4}[-/.年]\d{1,2}[-/.月]\d{1,2}")
+_CJK_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "一": 1,
+    "二": 2,
+    "兩": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "壹": 1,
+    "貳": 2,
+    "參": 3,
+    "肆": 4,
+    "伍": 5,
+    "陸": 6,
+    "柒": 7,
+    "捌": 8,
+    "玖": 9,
+}
+_CJK_UNITS = {"十": 10, "拾": 10, "百": 100, "佰": 100, "千": 1000, "仟": 1000}
+_CJK_BIG_UNITS = {"萬": 10000, "亿": 100000000, "億": 100000000}
 
 
 def get_embeddings() -> OllamaEmbeddings | GoogleGenerativeAIEmbeddings:
@@ -173,13 +205,123 @@ def _default_split(documents: list) -> list:
     return splitter.split_documents(documents)
 
 
+def _parse_cjk_number(text: str) -> int | None:
+    """解析常見中文金額數字，例如「六萬」「壹拾貳萬」。"""
+    total = 0
+    section = 0
+    number = 0
+    seen = False
+
+    for char in text:
+        if char in _CJK_DIGITS:
+            number = _CJK_DIGITS[char]
+            seen = True
+        elif char in _CJK_UNITS:
+            section += (number or 1) * _CJK_UNITS[char]
+            number = 0
+            seen = True
+        elif char in _CJK_BIG_UNITS:
+            section += number
+            total += (section or 1) * _CJK_BIG_UNITS[char]
+            section = 0
+            number = 0
+            seen = True
+
+    if not seen:
+        return None
+    return total + section + number
+
+
+def _parse_amount_value(amount_text: str) -> int | None:
+    """將裁罰金額文字轉為元；無法可靠解析時回傳 None。"""
+    normalized = amount_text.translate(str.maketrans("０１２３４５６７８９，", "0123456789,"))
+    match = re.search(r"([0-9][0-9,\.]*)", normalized)
+    if match:
+        value = float(match.group(1).replace(",", ""))
+        if re.search(r"萬\s*(?:元|圓)?|萬元", amount_text):
+            value *= 10000
+        elif re.search(r"千\s*(?:元|圓)?|千元", amount_text):
+            value *= 1000
+    else:
+        cjk_match = re.search(r"([一二三四五六七八九十百千萬億兩壹貳參肆伍陸柒捌玖拾佰仟]+)", amount_text)
+        if not cjk_match:
+            return None
+        parsed = _parse_cjk_number(cjk_match.group(1))
+        if parsed is None:
+            return None
+        value = float(parsed)
+
+    return int(value)
+
+
+def _extract_penalty_amount(text: str) -> tuple[str, int | None] | None:
+    """從一段文字中找出最像裁罰金額的片段。"""
+    matches = list(_PENALTY_AMOUNT_RE.finditer(text))
+    if not matches:
+        return None
+
+    def _score(match: re.Match) -> tuple[int, int]:
+        raw = match.group(0)
+        keyword_score = 1 if re.search(r"罰鍰|裁罰|處罰|新臺幣|新台幣", raw) else 0
+        return keyword_score, len(raw)
+
+    best = max(matches, key=_score)
+    amount_text = best.group(0).strip()
+    return amount_text, _parse_amount_value(amount_text)
+
+
+def _looks_like_case_start(line: str) -> bool:
+    """粗略判斷是否像新案件列的開頭。"""
+    return bool(_CASE_NO_RE.match(line) or _DATE_RE.match(line))
+
+
+def _build_penalty_case_docs(doc: Document, header: str, lines: list[str]) -> list[Document]:
+    """將抓得到金額的表格列整理成一案一筆文件。"""
+    case_docs: list[Document] = []
+
+    for index, line in enumerate(lines):
+        amount = _extract_penalty_amount(line)
+        if not amount:
+            continue
+
+        context_lines: list[str] = []
+        if index > 0 and not _looks_like_case_start(line):
+            context_lines.append(lines[index - 1])
+        context_lines.append(line)
+        if index + 1 < len(lines) and not _looks_like_case_start(lines[index + 1]):
+            context_lines.append(lines[index + 1])
+
+        amount_text, amount_value = amount
+        case_text = "\n".join(
+            [
+                "[裁罰案件]",
+                f"欄位：{header}",
+                *context_lines,
+                f"抽取罰鍰金額：{amount_text}",
+            ]
+        )
+        metadata = {
+            **doc.metadata,
+            "doc_type": "penalty_case",
+            "row_start": index + 1,
+            "penalty_amount_text": amount_text,
+        }
+        if amount_value is not None:
+            metadata["penalty_amount"] = amount_value
+
+        case_docs.append(Document(page_content=case_text, metadata=metadata))
+
+    return case_docs
+
+
 def _table_split(documents: list) -> list[Document]:
     """
     表格型文件切割（處罰案件統計表等）：
+    - 優先將抓得到罰鍰金額的列整理為 doc_type='penalty_case'，一案一筆
     - 自動偵測第一行為 header（欄位名稱列）
     - 動態計算每批行數，確保 header + 資料行的總字元數不超過 CHUNK_SIZE
     - 若單行本身就超長，退回 RecursiveCharacterTextSplitter 做二次切割
-    - metadata 加入 doc_type='table' 與 row_start 方便追蹤來源列
+    - metadata 加入 doc_type / row_start / penalty_amount 方便追蹤來源列
 
     若 PDF 解析後表格結構不規則（欄位散落），建議搭配
     UnstructuredPDFLoader(mode='elements') 先過濾出 Table element。
@@ -204,6 +346,10 @@ def _table_split(documents: list) -> list[Document]:
         header = lines[0]
         header_len = len(header) + 1  # +1 for "\n"
         data_lines = lines[1:]
+        penalty_case_docs = _build_penalty_case_docs(doc, header, data_lines)
+        if penalty_case_docs:
+            all_chunks.extend(penalty_case_docs)
+            continue
 
         batch: list[str] = []
         batch_len = header_len

@@ -50,6 +50,8 @@ class Settings:
     # ── Retriever ────────────────────────────────────────
     # 每個 retriever 各取幾份文件（最終取聯集去重）
     RETRIEVER_K: int = int(os.getenv("RETRIEVER_K", "5"))
+    # 裁罰案例專用候選數；案件表通常筆數多，需要比一般條文抓更多候選
+    PENALTY_CASE_K: int = int(os.getenv("PENALTY_CASE_K", "25"))
     # BM25 在 Hybrid Search 中的權重（0~1），剩餘給 Vector
     BM25_WEIGHT: float = float(os.getenv("BM25_WEIGHT", "0.4"))
 
