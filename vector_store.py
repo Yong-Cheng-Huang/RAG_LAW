@@ -27,6 +27,11 @@ _PENALTY_AMOUNT_RE = re.compile(
     r"\s*([0-9０-９一二三四五六七八九十百千萬億兩壹貳參肆伍陸柒捌玖拾佰仟萬億,.，]+)"
     r"\s*(?:元|圓|萬元|萬|千元)"
 )
+_PENALTY_AMOUNT_HEADER_RE = re.compile(r"(?:罰\s*鍰|裁\s*罰)\s*金\s*額")
+_PLAIN_AMOUNT_RE = re.compile(r"(?<![\d./-])([0-9０-９][0-9０-９,，.]*)")
+_VIOLATION_CASE_HEADER_RE = re.compile(
+    r"(?:產品\s*名稱|違規\s*情節|處分\s*商號\s*名稱|罰\s*鍰\s*金\s*額|罰則\s*註記)"
+)
 _CASE_NO_RE = re.compile(r"^\s*(?:\d+|[一二三四五六七八九十]+)[\.、\s]")
 _DATE_RE = re.compile(r"^\s*\d{2,4}[-/.年]\d{1,2}[-/.月]\d{1,2}")
 _CJK_DIGITS = {
@@ -85,6 +90,17 @@ def load_pdf(file_path: str | Path) -> list:
     """使用 UnstructuredPDFLoader 載入單一 PDF。"""
     loader = UnstructuredPDFLoader(str(file_path))
     return loader.load()
+
+
+def load_table_pdf(file_path: str | Path) -> list[Document]:
+    """
+    載入表格型 PDF，嘗試用 element 座標將「欄位整欄輸出」還原為一列一案。
+    還原失敗時退回一般 PDF loader。
+    """
+    loader = UnstructuredPDFLoader(str(file_path), mode="elements")
+    docs = loader.load()
+    table_docs = _rebuild_violation_table_documents(docs)
+    return table_docs or load_pdf(file_path)
 
 
 # ── Contextual Header 注入 ────────────────────────────────
@@ -237,7 +253,10 @@ def _parse_amount_value(amount_text: str) -> int | None:
     normalized = amount_text.translate(str.maketrans("０１２３４５６７８９，", "0123456789,"))
     match = re.search(r"([0-9][0-9,\.]*)", normalized)
     if match:
-        value = float(match.group(1).replace(",", ""))
+        try:
+            value = float(match.group(1).replace(",", ""))
+        except ValueError:
+            return None
         if re.search(r"萬\s*(?:元|圓)?|萬元", amount_text):
             value *= 10000
         elif re.search(r"千\s*(?:元|圓)?|千元", amount_text):
@@ -270,42 +289,309 @@ def _extract_penalty_amount(text: str) -> tuple[str, int | None] | None:
     return amount_text, _parse_amount_value(amount_text)
 
 
+def _extract_table_penalty_amount(header: str, text: str) -> tuple[str, int | None] | None:
+    """
+    表格 header 已標示「罰鍰金額」時，資料列常只剩純數字。
+    此 fallback 僅在 header 有裁罰金額欄位時啟用，避免一般數字被誤判。
+    """
+    if not _PENALTY_AMOUNT_HEADER_RE.search(header):
+        return None
+
+    candidates: list[tuple[int, int, str]] = []
+    for match in _PLAIN_AMOUNT_RE.finditer(text):
+        raw = match.group(1)
+        value = _parse_amount_value(f"{raw}元")
+        if value is None or value <= 0:
+            continue
+        # 常見裁罰金額多為整數元；分數/小數欄位較不像罰鍰。
+        if "." in raw and not raw.endswith(".000"):
+            continue
+        comma_score = 1 if re.search(r"[,，]", raw) else 0
+        amount_scale_score = 1 if value >= 1000 else 0
+        candidates.append((comma_score + amount_scale_score, match.start(), raw))
+
+    if not candidates:
+        return None
+
+    _, _, amount_text = max(candidates)
+    amount_value = _parse_amount_value(f"{amount_text}元")
+    return f"{amount_text}元", amount_value
+
+
 def _looks_like_case_start(line: str) -> bool:
     """粗略判斷是否像新案件列的開頭。"""
     return bool(_CASE_NO_RE.match(line) or _DATE_RE.match(line))
 
 
+def _coord_points(doc: Document) -> tuple[tuple[float, float], ...] | None:
+    coordinates = doc.metadata.get("coordinates") or {}
+    points = coordinates.get("points")
+    if not points:
+        return None
+    return tuple((float(x), float(y)) for x, y in points)
+
+
+def _coord_center(doc: Document) -> tuple[float, float] | None:
+    points = _coord_points(doc)
+    if not points:
+        return None
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    return sum(xs) / len(xs), sum(ys) / len(ys)
+
+
+def _coord_top(doc: Document) -> float | None:
+    points = _coord_points(doc)
+    if not points:
+        return None
+    return min(point[1] for point in points)
+
+
+def _clean_table_text(text: str) -> str:
+    """清理 PDF 表格文字中因窄欄換行留下的多餘空白。"""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _nearest_row_index(row_ys: list[float], y: float) -> int:
+    return min(range(len(row_ys)), key=lambda index: abs(row_ys[index] - y))
+
+
+def _column_name_from_x(x: float) -> str | None:
+    """依這類公告表的固定欄位位置判斷 element 所屬欄位。"""
+    if x < 48:
+        return "項次"
+    if x < 76:
+        return "發文日期"
+    if x < 153:
+        return "產品名稱"
+    if x < 174:
+        return "來源"
+    if x < 432:
+        return "違規情節"
+    if x < 472:
+        return "處分商號名稱"
+    if x < 514:
+        return "罰鍰金額"
+    if x < 545:
+        return "罰則註記"
+    return "排名"
+
+
+def _is_table_title(text: str) -> bool:
+    return "處理食品" in text and "違規廣告處罰案件統計表" in text
+
+
+def _rebuild_violation_table_documents(docs: list[Document]) -> list[Document]:
+    """將 unstructured 以欄序輸出的違規廣告表，依座標重組成 row-based 文件。"""
+    docs_by_page: dict[int, list[Document]] = {}
+    for doc in docs:
+        page_number = doc.metadata.get("page_number")
+        if isinstance(page_number, int):
+            docs_by_page.setdefault(page_number, []).append(doc)
+
+    rebuilt_docs: list[Document] = []
+    header = "項次\t發文日期\t產品名稱\t來源\t違規情節\t處分商號名稱\t罰鍰金額\t罰則註記\t排名"
+
+    for page_number, page_docs in sorted(docs_by_page.items()):
+        item_markers: list[tuple[float, str]] = []
+        for doc in page_docs:
+            center = _coord_center(doc)
+            if not center:
+                continue
+            x, y = center
+            text = _clean_table_text(doc.page_content)
+            if x < 48 and re.fullmatch(r"\d+", text):
+                item_markers.append((y, text))
+
+        if not item_markers:
+            continue
+
+        item_markers.sort()
+        row_ys = [item[0] for item in item_markers]
+        rows: list[dict[str, str]] = [{"項次": item[1]} for item in item_markers]
+        seen_values: set[tuple[int, str, str]] = set()
+
+        for doc in page_docs:
+            text = _clean_table_text(doc.page_content)
+            if not text or _is_table_title(text):
+                continue
+            category = doc.metadata.get("category")
+            if category in {"Header", "Footer"}:
+                continue
+            center = _coord_center(doc)
+            top = _coord_top(doc)
+            if not center or top is None:
+                continue
+            x, y = center
+            column_name = _column_name_from_x(x)
+            if not column_name:
+                continue
+            row_index = _nearest_row_index(row_ys, y)
+            # 長篇違規情節的 bounding box 常往上延伸，使用中心點較穩；短欄位則中心/上緣皆可。
+            if column_name != "違規情節":
+                row_index = _nearest_row_index(row_ys, top)
+            if column_name == "項次":
+                continue
+            key = (row_index, column_name, text)
+            if key in seen_values:
+                continue
+            seen_values.add(key)
+            current = rows[row_index].get(column_name, "")
+            rows[row_index][column_name] = f"{current} {text}".strip() if current else text
+
+        lines: list[str] = []
+        for row in rows:
+            if not row.get("產品名稱") and not row.get("違規情節"):
+                continue
+            lines.append(
+                "\t".join(
+                    [
+                        row.get("項次", ""),
+                        row.get("發文日期", ""),
+                        row.get("產品名稱", ""),
+                        row.get("來源", ""),
+                        row.get("違規情節", ""),
+                        row.get("處分商號名稱", ""),
+                        row.get("罰鍰金額", ""),
+                        row.get("罰則註記", ""),
+                        row.get("排名", ""),
+                    ]
+                )
+            )
+
+        if lines:
+            rebuilt_docs.append(
+                Document(
+                    page_content=f"{header}\n" + "\n".join(lines),
+                    metadata={"page": page_number, "parser": "table_elements"},
+                )
+            )
+
+    return rebuilt_docs
+
+
+def _split_table_cells(text: str) -> list[str]:
+    """依 PDF 常見欄位間隔拆 cell；拆不開時保留整列。"""
+    normalized = text.replace("｜", "|").replace("│", "|")
+    if "|" in normalized:
+        return [cell.strip() for cell in normalized.split("|") if cell.strip()]
+    cells = re.split(r"\t+|\s{2,}", normalized.strip())
+    return [cell.strip() for cell in cells if cell.strip()]
+
+
+def _normalize_header_cell(text: str) -> str:
+    """將表格欄名正規化，方便比對「罰鍰金額」等格式。"""
+    return re.sub(r"[\s()（）:：]", "", text)
+
+
+def _find_header_index(header_cells: list[str], aliases: tuple[str, ...]) -> int | None:
+    normalized_aliases = tuple(_normalize_header_cell(alias) for alias in aliases)
+    for index, cell in enumerate(header_cells):
+        normalized = _normalize_header_cell(cell)
+        if any(alias in normalized for alias in normalized_aliases):
+            return index
+    return None
+
+
+def _parse_violation_case_row(header: str, line: str) -> dict[str, str]:
+    """把違規案例表的一列整理為固定欄位；拆欄失敗時保留原始資料列。"""
+    header_cells = _split_table_cells(header)
+    row_cells = _split_table_cells(line)
+    fields: dict[str, str] = {"raw_row": line.strip()}
+
+    field_aliases = {
+        "product_name": ("產品名稱", "品名", "產品"),
+        "media_source": ("來源", "廣告來源", "刊播來源"),
+        "violation_details": ("違規情節", "違規內容", "違規詞句", "違規廣告詞句"),
+        "disposition_name": ("處分商號名稱", "處分商號", "受處分人", "商號名稱"),
+        "penalty_amount": ("罰鍰金額", "裁罰金額"),
+        "penalty_note": ("罰則註記", "違反法條", "違反法規", "違反條文"),
+        "rank": ("排名",),
+    }
+
+    for field_name, aliases in field_aliases.items():
+        index = _find_header_index(header_cells, aliases)
+        if index is not None and index < len(row_cells):
+            fields[field_name] = row_cells[index]
+
+    return fields
+
+
+def _is_violation_case_table(header: str) -> bool:
+    """判斷 header 是否像食品/健康食品違規廣告處罰案件表。"""
+    return bool(_VIOLATION_CASE_HEADER_RE.search(header))
+
+
 def _build_penalty_case_docs(doc: Document, header: str, lines: list[str]) -> list[Document]:
-    """將抓得到金額的表格列整理成一案一筆文件。"""
+    """將違規案例表整理成一列一個 chunk。"""
     case_docs: list[Document] = []
+    is_violation_case_table = _is_violation_case_table(header)
 
     for index, line in enumerate(lines):
-        amount = _extract_penalty_amount(line)
-        if not amount:
+        fields = _parse_violation_case_row(header, line)
+        product_name = fields.get("product_name", "").strip()
+        media_source = fields.get("media_source", "").strip()
+        violation_details = fields.get("violation_details", "").strip()
+        disposition_name = fields.get("disposition_name", "").strip()
+        penalty_note = fields.get("penalty_note", "").strip()
+        rank = fields.get("rank", "").strip()
+        if fields.get("penalty_amount"):
+            amount_text = fields["penalty_amount"]
+            amount_value = _parse_amount_value(f"{amount_text}元")
+            amount = (amount_text, amount_value)
+        else:
+            amount = _extract_penalty_amount(line) or _extract_table_penalty_amount(header, line)
+            amount_text, amount_value = amount if amount else ("", None)
+        if not is_violation_case_table and not amount:
             continue
 
         context_lines: list[str] = []
-        if index > 0 and not _looks_like_case_start(line):
+        if not is_violation_case_table and index > 0 and not _looks_like_case_start(line):
             context_lines.append(lines[index - 1])
-        context_lines.append(line)
-        if index + 1 < len(lines) and not _looks_like_case_start(lines[index + 1]):
+        if fields["raw_row"]:
+            context_lines.append(f"原始資料列：{fields['raw_row']}")
+        if (
+            not is_violation_case_table
+            and index + 1 < len(lines)
+            and not _looks_like_case_start(lines[index + 1])
+        ):
             context_lines.append(lines[index + 1])
 
-        amount_text, amount_value = amount
-        case_text = "\n".join(
-            [
-                "[裁罰案件]",
-                f"欄位：{header}",
-                *context_lines,
-                f"抽取罰鍰金額：{amount_text}",
-            ]
-        )
+        case_title = f"{product_name}違規廣告" if product_name else "違規廣告案例"
+        case_lines = [
+            f"案例：{case_title}",
+            f"產品名稱：{product_name or '未載明'}",
+            f"廣告來源：{media_source or '未載明'}",
+            f"違規情節：{violation_details or '未載明'}",
+            f"處分商號名稱：{disposition_name or '未載明'}",
+            f"罰則註記：{penalty_note or '未載明'}",
+        ]
+        if amount_text:
+            case_lines.append(f"罰鍰金額：{amount_text}")
+        if rank:
+            case_lines.append(f"排名：{rank}")
+        case_lines.extend(context_lines)
+        case_text = "\n".join(case_lines)
+
         metadata = {
             **doc.metadata,
             "doc_type": "penalty_case",
             "row_start": index + 1,
-            "penalty_amount_text": amount_text,
         }
+        if product_name:
+            metadata["product_name"] = product_name
+        if media_source:
+            metadata["media_source"] = media_source
+        if violation_details:
+            metadata["violation_details"] = violation_details
+        if disposition_name:
+            metadata["disposition_name"] = disposition_name
+        if penalty_note:
+            metadata["penalty_note"] = penalty_note
+        if rank:
+            metadata["rank"] = rank
+        if amount_text:
+            metadata["penalty_amount_text"] = amount_text
         if amount_value is not None:
             metadata["penalty_amount"] = amount_value
 
@@ -466,7 +752,7 @@ def ingest_pdf(
                   若不傳則退回使用 file_path 的 basename。
     回傳切割後的 chunk 數量。
     """
-    docs = load_pdf(file_path)
+    docs = load_table_pdf(file_path) if doc_type == "table" else load_pdf(file_path)
     chunks = split_documents(docs, doc_type=doc_type)
 
     if not chunks:
@@ -477,6 +763,8 @@ def ingest_pdf(
     for chunk in chunks:
         chunk.metadata["source_file"] = filename
         chunk.metadata.setdefault("doc_type", doc_type)
+        if chunk.metadata.get("doc_type") == "penalty_case" and "\n來源：" not in chunk.page_content:
+            chunk.page_content = f"{chunk.page_content}\n來源：{Path(filename).stem}"
 
     db = get_vector_store()
     db.add_documents(chunks)
