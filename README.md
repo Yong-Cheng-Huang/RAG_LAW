@@ -2,6 +2,12 @@
 
 一個針對台灣食品法規、食品標示與廣告合規審查設計的 PDF RAG 問答系統。使用者可以上傳 PDF，系統會依文件類型自動切割內容、建立 ChromaDB 向量索引，並透過 Hybrid Search 與 LLM 產生具來源依據的繁體中文回答。
 
+## Demo 影片
+
+[觀看 demo 影片](./product-demo.mp4)
+
+<video src="./product-demo.mp4" controls title="RAG PDF 知識庫問答系統 Demo"></video>
+
 ## 功能特色
 
 - PDF 上傳與知識庫建立
