@@ -69,56 +69,56 @@ pip install -r requirements.txt
 
 ## `.env` 範例
 
-### Ollama 本地模式
+以下範本依照本專案目前使用的設定整理。請將 API key 改成自己的值，不要把實際 `.env` 或任何 key 提交到 Git。
+
+### 完整範本
 
 ```env
-LLM_MODE=ollama
+# LLM 模式: ollama / openai / gemini
+LLM_MODE=gemini
+
+# Gemini 設定
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.1-flash-lite
+
+# Ollama 設定
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3
-MULTIQUERY_MODEL=
+OLLAMA_MODEL=gemma4:e2b
+MULTIQUERY_MODEL=gemini-3.1-flash-lite
 
+# OpenAI 設定（LLM_MODE=openai 時填寫）
+# OPENAI_API_KEY=your_openai_api_key
+# OPENAI_MODEL=gpt-4o-mini
+
+# Embedding 設定: ollama / gemini
 EMBEDDING_MODE=ollama
-EMBEDDING_MODEL=bge-m3
+EMBEDDING_MODEL=nomic-embed-text
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 
+# ChromaDB 設定
 CHROMA_PERSIST_DIR=./chroma_db
 CHROMA_COLLECTION=pdf_knowledge_base
 
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-LEGAL_CHUNK_MODE=true
+# 文本切割參數
+CHUNK_SIZE=500
+CHUNK_OVERLAP=60
 
-RETRIEVER_K=5
+# 檢索參數
+RETRIEVER_K=8
 PENALTY_CASE_K=25
-BM25_WEIGHT=0.4
+BM25_WEIGHT=0.7
+
+# OCR 設定（若系統需要指定 tesseract 路徑）
+TESSERACT_CMD=/opt/homebrew/bin/tesseract
 ```
+
+### Ollama 本地模式
 
 使用 Ollama 時，請先確認本機已啟動 Ollama，並已下載需要的模型：
 
 ```bash
-ollama pull llama3
-ollama pull bge-m3
-```
-
-### OpenAI 模式
-
-```env
-LLM_MODE=openai
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o-mini
-
-EMBEDDING_MODE=ollama
-EMBEDDING_MODEL=bge-m3
-```
-
-### Gemini 模式
-
-```env
-LLM_MODE=gemini
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.0-flash
-
-EMBEDDING_MODE=gemini
-GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+ollama pull gemma4:e2b
+ollama pull nomic-embed-text
 ```
 
 ## 啟動
