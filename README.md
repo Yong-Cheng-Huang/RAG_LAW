@@ -4,9 +4,7 @@
 
 ## Demo 影片
 
-[觀看 demo 影片](./product-demo.mp4)
-
-<video src="./product-demo.mp4" controls title="RAG PDF 知識庫問答系統 Demo"></video>
+![RAG PDF 知識庫問答系統 Demo](./demo.gif)
 
 ## 功能特色
 
