@@ -500,6 +500,7 @@ def _parse_violation_case_row(header: str, line: str) -> dict[str, str]:
     fields: dict[str, str] = {"raw_row": line.strip()}
 
     field_aliases = {
+        "document_date": ("發文日期", "裁決書發文日期", "裁處書發文日期", "處分書發文日期"),
         "product_name": ("產品名稱", "品名", "產品"),
         "media_source": ("來源", "廣告來源", "刊播來源"),
         "violation_details": ("違規情節", "違規內容", "違規詞句", "違規廣告詞句"),
@@ -529,6 +530,7 @@ def _build_penalty_case_docs(doc: Document, header: str, lines: list[str]) -> li
 
     for index, line in enumerate(lines):
         fields = _parse_violation_case_row(header, line)
+        document_date = fields.get("document_date", "").strip()
         product_name = fields.get("product_name", "").strip()
         media_source = fields.get("media_source", "").strip()
         violation_details = fields.get("violation_details", "").strip()
@@ -560,6 +562,7 @@ def _build_penalty_case_docs(doc: Document, header: str, lines: list[str]) -> li
         case_title = f"{product_name}違規廣告" if product_name else "違規廣告案例"
         case_lines = [
             f"案例：{case_title}",
+            f"裁決書發文日期：{document_date or '未載明'}",
             f"產品名稱：{product_name or '未載明'}",
             f"廣告來源：{media_source or '未載明'}",
             f"違規情節：{violation_details or '未載明'}",
@@ -578,6 +581,8 @@ def _build_penalty_case_docs(doc: Document, header: str, lines: list[str]) -> li
             "doc_type": "penalty_case",
             "row_start": index + 1,
         }
+        if document_date:
+            metadata["document_date"] = document_date
         if product_name:
             metadata["product_name"] = product_name
         if media_source:
