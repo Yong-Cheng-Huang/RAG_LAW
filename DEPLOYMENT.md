@@ -76,10 +76,11 @@ Streamlit Community Cloud 不保證本地檔案儲存會永久保留，因此 `c
 poppler-utils
 tesseract-ocr
 tesseract-ocr-chi-tra
-libmagic1
 libgl1
-libglib2.0-0
+file
 ```
+
+若 Streamlit Cloud 的 apt installer 出現 `libglib2.0-0`、`libglib2.0-0t64`、`libmagic1` 或 `libmagic-mgc` 的 dependency conflict，請不要指定舊版 runtime library 套件。保留 `file` 讓系統安裝相容的 libmagic 相關依賴即可。
 
 若特定 PDF 仍失敗，建議先確認該 PDF 是否可選取文字。掃描版 PDF 可能需要先 OCR。
 
