@@ -133,6 +133,33 @@ streamlit run app.py
 http://localhost:8501
 ```
 
+## 免費部署
+
+若要免費部署並使用 Gemini，建議使用 Streamlit Community Cloud。此專案已包含：
+
+- `packages.txt`：部署時安裝 PDF 解析所需的 Linux 系統套件
+- `.streamlit/config.toml`：Streamlit Cloud 基本設定
+- `.streamlit/secrets.toml.example`：Gemini 正式環境 secrets 範本
+- `DEPLOYMENT.md`：完整部署步驟
+
+部署時 entrypoint 請選：
+
+```text
+app.py
+```
+
+正式環境 secrets 建議設定：
+
+```toml
+LLM_MODE = "gemini"
+EMBEDDING_MODE = "gemini"
+GEMINI_API_KEY = "your_gemini_api_key"
+GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+```
+
+注意：Streamlit Community Cloud 不保證本地檔案永久保存，因此 `chroma_db/` 可能在 app 休眠、重啟或重新部署後消失。若需要長期保留知識庫，建議改用有 persistent disk 的平台，或改接外部向量資料庫。
+
 ## 使用方式
 
 1. 在左側 sidebar 上傳一個或多個 PDF。
