@@ -40,6 +40,13 @@ st.markdown("""
         --copper: #b45f32;
         --gold: #c79a3a;
         --blue: #1d4f73;
+        --chat-input-bg: #f7faf6;
+        --chat-input-border: #bfd8cc;
+        --chat-input-text: #1b2a24;
+        --chat-input-placeholder: #6f8178;
+        --chat-input-button: #0f4a3a;
+        --chat-input-focus: #2f7d62;
+        --chat-input-focus-shadow: rgba(47, 125, 98, 0.18);
         --shadow: 0 18px 45px rgba(28, 39, 31, 0.10);
     }
 
@@ -75,7 +82,7 @@ st.markdown("""
 
     .main .block-container {
         max-width: 1180px;
-        padding: 3.5rem 2.5rem 6rem;
+        padding: 3.5rem 2.5rem 10rem;
     }
 
     [data-testid="stSidebar"] {
@@ -176,7 +183,7 @@ st.markdown("""
     .hero {
         position: relative;
         overflow: hidden;
-        padding: clamp(2rem, 5vw, 4.5rem);
+        padding: clamp(1.45rem, 3.4vw, 3rem);
         border: 1px solid var(--line);
         border-radius: 8px;
         background:
@@ -197,7 +204,7 @@ st.markdown("""
         display: inline-flex;
         align-items: center;
         gap: 0.55rem;
-        margin-bottom: 1.1rem;
+        margin-bottom: 0.75rem;
         color: var(--green-dark);
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
         font-size: 0.78rem;
@@ -219,7 +226,7 @@ st.markdown("""
         max-width: 780px;
         margin: 0;
         color: var(--ink);
-        font-size: clamp(2.1rem, 4.4vw, 4rem);
+        font-size: clamp(1.9rem, 3.6vw, 3.35rem);
         line-height: 1.12;
         letter-spacing: 0;
         font-weight: 780;
@@ -229,18 +236,18 @@ st.markdown("""
 
     .hero p {
         max-width: 760px;
-        margin: 1.35rem 0 0;
+        margin: 0.9rem 0 0;
         color: #38463d;
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
         font-size: clamp(1rem, 1.7vw, 1.2rem);
-        line-height: 1.78;
+        line-height: 1.68;
     }
 
     .hero-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.75fr);
-        gap: 1.5rem;
-        margin-top: 2rem;
+        gap: 1.1rem;
+        margin-top: 1.25rem;
         align-items: end;
     }
 
@@ -248,7 +255,7 @@ st.markdown("""
         display: flex;
         flex-wrap: wrap;
         gap: 0.75rem;
-        margin-top: 1.75rem;
+        margin-top: 1.05rem;
     }
 
     .pill {
@@ -266,7 +273,7 @@ st.markdown("""
     }
 
     .signal-panel {
-        padding: 1.1rem;
+        padding: 0.9rem;
         border: 1px solid rgba(21, 32, 24, 0.13);
         border-radius: 8px;
         background: rgba(18, 63, 49, 0.94);
@@ -285,13 +292,13 @@ st.markdown("""
 
     .signal-panel .value {
         margin-top: 0.35rem;
-        font-size: 2.4rem;
+        font-size: 2.05rem;
         line-height: 1;
         font-weight: 760;
     }
 
     .signal-panel .detail {
-        margin-top: 0.8rem;
+        margin-top: 0.55rem;
         color: rgba(247, 248, 243, 0.78);
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
         font-size: 0.9rem;
@@ -353,6 +360,11 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
+    [class*="st-key-chat-history"],
+    [class*="st-key-chat_history"] {
+        margin-top: 1.6rem;
+    }
+
     .stChatMessage {
         border: 1px solid rgba(21, 32, 24, 0.10);
         border-radius: 8px;
@@ -366,28 +378,60 @@ st.markdown("""
         line-height: 1.75;
     }
 
+    .stChatMessage [data-testid="stChatMessageAvatar"] {
+        background: rgba(37, 106, 77, 0.08) !important;
+        border: 1px solid rgba(37, 106, 77, 0.14);
+    }
+
+    .stChatMessage [data-testid="stSpinner"],
+    .stChatMessage [data-testid="stSpinner"] > div,
+    .stChatMessage [data-testid="stSpinner"] span {
+        background: transparent !important;
+        color: var(--muted) !important;
+        font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
+    }
+
+    .stChatMessage [data-testid="stSpinner"] svg {
+        color: var(--green) !important;
+        fill: var(--green) !important;
+    }
+
+    .stChatMessage [data-testid="stMarkdownContainer"] hr {
+        height: 1px;
+        margin: 1.25rem 0;
+        border: 0;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(18, 63, 49, 0.34),
+            rgba(199, 154, 58, 0.30),
+            transparent
+        ) !important;
+    }
+
     .stChatMessage [data-testid="stMarkdownContainer"] table {
         border-collapse: collapse;
         width: 100%;
         font-size: 0.92rem;
+        border: 1px solid rgba(18, 63, 49, 0.34) !important;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] th,
     .stChatMessage [data-testid="stMarkdownContainer"] td {
-        border: 1px solid rgba(21, 32, 24, 0.20) !important;
+        border: 1px solid rgba(18, 63, 49, 0.34) !important;
         padding: 0.45em 0.75em;
         text-align: left;
         color: var(--ink) !important;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] th {
-        background: rgba(18, 63, 49, 0.10) !important;
+        background: rgba(18, 63, 49, 0.13) !important;
         font-weight: 700;
         color: var(--green-dark) !important;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] tr:nth-child(even) td {
-        background: rgba(21, 32, 24, 0.03) !important;
+        background: rgba(37, 106, 77, 0.055) !important;
     }
 
     [data-testid="stMarkdownContainer"] ul > li > code,
@@ -404,109 +448,87 @@ st.markdown("""
         color: var(--ink) !important;
     }
 
-    .ask-dock-title {
-        margin: 0 0 0.55rem;
-        color: var(--green-dark);
-        font-size: 1.12rem;
-        font-weight: 800;
-        letter-spacing: 0;
+    [data-testid="stBottomBlockContainer"],
+    [data-testid="stBottomBlockContainer"] > div {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        pointer-events: none;
     }
 
-    [class*="st-key-ask-dock"],
-    [class*="st-key-ask_dock"] {
-        position: sticky !important;
-        bottom: 0 !important;
-        z-index: 999 !important;
-        margin-top: 1.5rem !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        box-sizing: border-box;
-        padding: 0.78rem;
-        border: 1px solid rgba(21, 32, 24, 0.12);
-        border-radius: 8px;
-        background: rgba(255, 255, 250, 0.92);
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        box-shadow: 0 10px 30px rgba(28, 39, 31, 0.06);
+    .st-emotion-cache-hzygls.eqt0gmo3,
+    [class*="st-emotion-cache-hzygls"].eqt0gmo3,
+    [data-testid="stBottomBlockContainer"] .st-emotion-cache-hzygls.eqt0gmo3,
+    [data-testid="stBottomBlockContainer"] [class*="st-emotion-cache-hzygls"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
     }
 
-    .main .block-container {
-        padding-bottom: 10rem !important;
+    [data-testid="stBottomBlockContainer"] [data-testid="stChatInput"] {
+        pointer-events: auto;
     }
 
-    [class*="st-key-ask-dock"] [data-testid="stMarkdownContainer"],
-    [class*="st-key-ask_dock"] [data-testid="stMarkdownContainer"] {
-        padding-right: 0;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stForm"],
-    [class*="st-key-ask_dock"] [data-testid="stForm"] {
-        margin: 0;
-        padding: 0;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        box-shadow: none;
-        backdrop-filter: none;
-        width: 100% !important;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stForm"] > div,
-    [class*="st-key-ask_dock"] [data-testid="stForm"] > div {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 112px;
-        gap: 0.7rem;
-        align-items: center;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stTextInput"],
-    [class*="st-key-ask_dock"] [data-testid="stTextInput"] {
-        margin: 0;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stFormSubmitButton"],
-    [class*="st-key-ask_dock"] [data-testid="stFormSubmitButton"] {
-        margin: 0;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stFormSubmitButton"] button,
-    [class*="st-key-ask_dock"] [data-testid="stFormSubmitButton"] button {
-        height: 52px;
-        min-height: 52px;
-        border-color: var(--green-dark);
-        background: var(--green-dark);
-        color: #fffefa;
-        box-shadow: 0 8px 20px rgba(18, 63, 49, 0.18);
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stFormSubmitButton"] button:hover,
-    [class*="st-key-ask_dock"] [data-testid="stFormSubmitButton"] button:hover {
-        border-color: var(--green);
-        background: var(--green);
-        color: #fffefa;
-    }
-
-    [class*="st-key-ask-dock"] [data-testid="stForm"] [data-testid="stTextInput"] input,
-    [class*="st-key-ask_dock"] [data-testid="stForm"] [data-testid="stTextInput"] input {
-        height: 52px;
-        min-height: 52px;
-        padding-top: 0;
-        padding-bottom: 0;
-        border-color: rgba(18, 63, 49, 0.20);
-        background: #fffefa;
-        color: var(--ink);
+    [data-testid="stChatInput"] [data-baseweb="textarea"],
+    [data-testid="stChatInput"] textarea {
+        border-radius: 8px !important;
+        border-color: var(--chat-input-border) !important;
+        background: var(--chat-input-bg) !important;
+        background-color: var(--chat-input-bg) !important;
+        color: var(--chat-input-text) !important;
+        caret-color: var(--chat-input-text) !important;
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
-        font-size: 1rem;
-        line-height: 52px;
     }
 
-    [class*="st-key-ask-dock"] [data-testid="stForm"] [data-baseweb="input"],
-    [class*="st-key-ask_dock"] [data-testid="stForm"] [data-baseweb="input"] {
-        min-height: 52px;
-        align-items: center;
-        border-radius: 8px;
-        background: #fffefa;
+    [data-testid="stChatInput"] [data-baseweb="textarea"],
+    [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
+    [data-testid="stChatInput"] [data-baseweb="textarea"] > div > div,
+    [data-testid="stChatInput"] .st-emotion-cache-jchovf.e1vtqrcf1,
+    [data-testid="stChatInput"] [class*="st-emotion-cache-jchovf"] {
+        background: var(--chat-input-bg) !important;
+        background-color: var(--chat-input-bg) !important;
+        background-image: none !important;
+    }
+
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: var(--chat-input-focus) !important;
+        background: var(--chat-input-bg) !important;
+        background-color: var(--chat-input-bg) !important;
+        box-shadow: 0 0 0 2px var(--chat-input-focus-shadow) !important;
+        outline: none !important;
+    }
+
+    [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"],
+    [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"] > div,
+    [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"] > div > div,
+    [data-testid="stChatInput"]:focus-within .st-emotion-cache-jchovf.e1vtqrcf1,
+    [data-testid="stChatInput"]:focus-within [class*="st-emotion-cache-jchovf"] {
+        border-color: var(--chat-input-focus) !important;
+        background: var(--chat-input-bg) !important;
+        background-color: var(--chat-input-bg) !important;
+        background-image: none !important;
+    }
+
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: var(--chat-input-placeholder) !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stChatInput"] [data-testid="stChatInputSubmitButton"],
+    [data-testid="stChatInput"] [data-testid="stChatInputSubmitButton"] > button,
+    [data-testid="stChatInput"] button {
+        border-radius: 8px !important;
+        background: var(--chat-input-button) !important;
+        background-color: var(--chat-input-button) !important;
+        color: #fffefa !important;
+    }
+
+    [data-testid="stChatInput"] button:hover {
+        background: var(--chat-input-focus) !important;
+        background-color: var(--chat-input-focus) !important;
+        color: #fffefa !important;
     }
 
     .stButton > button,
@@ -564,6 +586,54 @@ st.markdown("""
         color: var(--ink) !important;
     }
 
+    [data-testid="stSidebar"] div[data-baseweb="select"] > div {
+        background: #fffefa !important;
+        border-color: rgba(18, 63, 49, 0.22) !important;
+        color: var(--ink) !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stSidebar"] div[data-baseweb="select"] span,
+    [data-testid="stSidebar"] div[data-baseweb="select"] svg {
+        color: var(--ink) !important;
+        fill: var(--ink) !important;
+    }
+
+    div[data-baseweb="popover"] div[data-baseweb="menu"],
+    div[data-baseweb="popover"] ul {
+        background: #fffefa !important;
+        border: 1px solid rgba(18, 63, 49, 0.18) !important;
+        border-radius: 8px !important;
+        color: var(--ink) !important;
+    }
+
+    div[data-baseweb="popover"] li,
+    div[data-baseweb="popover"] [role="option"] {
+        background: #fffefa !important;
+        background-color: #fffefa !important;
+        color: var(--ink) !important;
+    }
+
+    div[data-baseweb="popover"] li:hover,
+    div[data-baseweb="popover"] li[aria-selected="true"],
+    div[data-baseweb="popover"] [role="option"]:hover,
+    div[data-baseweb="popover"] [role="option"]:hover > div,
+    div[data-baseweb="popover"] [role="option"][aria-selected="true"],
+    div[data-baseweb="popover"] [role="option"][aria-selected="true"] > div,
+    div[data-baseweb="popover"] [role="option"][data-highlighted="true"],
+    div[data-baseweb="popover"] [role="option"][data-highlighted="true"] > div {
+        background: rgba(37, 106, 77, 0.10) !important;
+        background-color: rgba(37, 106, 77, 0.10) !important;
+        color: var(--green-dark) !important;
+    }
+
+    div[data-baseweb="popover"] [role="option"] *,
+    div[data-baseweb="popover"] [role="option"]:hover *,
+    div[data-baseweb="popover"] [role="option"][aria-selected="true"] *,
+    div[data-baseweb="popover"] [role="option"][data-highlighted="true"] * {
+        color: var(--green-dark) !important;
+    }
+
     input::placeholder,
     textarea::placeholder {
         color: var(--muted) !important;
@@ -600,22 +670,17 @@ st.markdown("""
 
     @media (max-width: 820px) {
         .main .block-container {
-            padding: 2rem 1rem 5.5rem;
+            padding: 2rem 1rem 10rem;
         }
 
         .hero {
-            padding: 1.35rem;
+            padding: 1.1rem;
         }
 
         .info-grid {
             grid-template-columns: 1fr;
         }
 
-        [class*="st-key-ask-dock"] [data-testid="stForm"] > div,
-        [class*="st-key-ask_dock"] [data-testid="stForm"] > div {
-            grid-template-columns: 1fr;
-            gap: 0.55rem;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -823,25 +888,19 @@ if not sources:
     )
 
 # 顯示對話歷史
-for msg in st.session_state.chat_history:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+if st.session_state.chat_history:
+    with st.container(key="chat_history"):
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
 # 使用者輸入
-with st.container(key="ask_dock"):
-    st.markdown(
-        '<div class="ask-dock-title">Ask The Knowledge Base</div>',
-        unsafe_allow_html=True,
-    )
-    with st.form("ask_knowledge_base", clear_on_submit=True):
-        prompt = st.text_input(
-            "請輸入你的問題",
-            placeholder="例如：健康食品廣告宣稱療效會違反哪一條？",
-            label_visibility="collapsed",
-        )
-        submitted = st.form_submit_button("Ask", use_container_width=True)
+prompt = st.chat_input(
+    "例如：健康食品廣告宣稱療效會違反哪一條？",
+    key="ask_knowledge_base",
+)
 
-if submitted and prompt.strip():
+if prompt and prompt.strip():
     prompt = prompt.strip()
     # 檢查知識庫是否有內容
     try:
