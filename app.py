@@ -496,6 +496,17 @@ st.markdown("""
         visibility: hidden;
     }
 
+    [data-testid="stHeader"] {
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            rgba(247, 248, 243, 0.92) !important;
+        background-size: 44px 44px, 44px 44px, auto !important;
+        border-bottom: 1px solid rgba(21, 32, 24, 0.08);
+        box-shadow: none !important;
+        backdrop-filter: blur(12px);
+    }
+
     @media (max-width: 1100px) {
         .hero-grid {
             grid-template-columns: 1fr;
