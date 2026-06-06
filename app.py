@@ -19,7 +19,7 @@ from llm_chain import ask, get_llm
 
 # ── 頁面設定 ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="食品法規 AI 知識庫 Demo",
+    page_title="食品法規 AI 問答平台",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="auto",
@@ -672,7 +672,7 @@ st.markdown(
         <div class="eyebrow">AI Knowledge Base Demo</div>
         <div class="hero-grid">
             <div>
-                <h1>食品法規與廣告合規的<br>可信問答工作台</h1>
+                <h1>食品法規 AI 問答平台</h1>
                 <p>
                     將 PDF 轉成可追溯的知識庫，結合法規條文切割、案例表格重組、
                     Hybrid Search 與 MultiQuery 檢索，讓每一次回答都回到可驗證的文件脈絡。
