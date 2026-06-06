@@ -365,6 +365,20 @@ st.markdown("""
         line-height: 1.75;
     }
 
+    [data-testid="stMarkdownContainer"] ul > li > code,
+    [data-testid="stCaptionContainer"] > p > code {
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            rgba(247, 248, 243, 0.92) !important;
+        background-size: 44px 44px, 44px 44px, auto !important;
+        border: 1px solid rgba(21, 32, 24, 0.10);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        font-size: 0.88em;
+        color: var(--ink) !important;
+    }
+
     .ask-dock-title {
         margin: 0 0 0.55rem;
         color: var(--green-dark);
@@ -477,6 +491,22 @@ st.markdown("""
         color: var(--green-dark);
     }
 
+    [data-testid="stBaseButton-secondary"] {
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            rgba(247, 248, 243, 0.92) !important;
+        background-size: 44px 44px, 44px 44px, auto !important;
+    }
+
+    [data-testid="stBaseButton-secondary"] [data-testid="stMarkdownContainer"] {
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            rgba(247, 248, 243, 0.92) !important;
+        background-size: 44px 44px, 44px 44px, auto !important;
+    }
+
     [data-testid="stFileUploader"] {
         border: 1px dashed rgba(37, 106, 77, 0.32);
         border-radius: 8px;
@@ -484,10 +514,30 @@ st.markdown("""
         padding: 0.4rem;
     }
 
+    [data-testid="stFileUploaderDropzone"] {
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            rgba(247, 248, 243, 0.92) !important;
+        background-size: 44px 44px, 44px 44px, auto !important;
+        border-radius: 6px;
+    }
+
     div[data-baseweb="select"] > div,
     textarea,
     input {
         border-radius: 8px !important;
+        color: var(--ink) !important;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--muted) !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stChatMessageContent"] {
+        color: var(--ink) !important;
     }
 
     [data-testid="stToolbar"],
