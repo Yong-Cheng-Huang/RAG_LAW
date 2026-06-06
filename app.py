@@ -358,11 +358,36 @@ st.markdown("""
         border-radius: 8px;
         background: rgba(255, 255, 250, 0.82);
         box-shadow: 0 10px 24px rgba(28, 39, 31, 0.055);
+        padding-right: 1.25rem;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] {
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
         line-height: 1.75;
+    }
+
+    .stChatMessage [data-testid="stMarkdownContainer"] table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.92rem;
+    }
+
+    .stChatMessage [data-testid="stMarkdownContainer"] th,
+    .stChatMessage [data-testid="stMarkdownContainer"] td {
+        border: 1px solid rgba(21, 32, 24, 0.20) !important;
+        padding: 0.45em 0.75em;
+        text-align: left;
+        color: var(--ink) !important;
+    }
+
+    .stChatMessage [data-testid="stMarkdownContainer"] th {
+        background: rgba(18, 63, 49, 0.10) !important;
+        font-weight: 700;
+        color: var(--green-dark) !important;
+    }
+
+    .stChatMessage [data-testid="stMarkdownContainer"] tr:nth-child(even) td {
+        background: rgba(21, 32, 24, 0.03) !important;
     }
 
     [data-testid="stMarkdownContainer"] ul > li > code,
@@ -389,7 +414,10 @@ st.markdown("""
 
     [class*="st-key-ask-dock"],
     [class*="st-key-ask_dock"] {
-        margin-top: 1.5rem;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 999 !important;
+        margin-top: 1.5rem !important;
         width: 100% !important;
         min-width: 0 !important;
         max-width: none !important;
@@ -397,8 +425,14 @@ st.markdown("""
         padding: 0.78rem;
         border: 1px solid rgba(21, 32, 24, 0.12);
         border-radius: 8px;
-        background: rgba(255, 255, 250, 0.76);
+        background: rgba(255, 255, 250, 0.92);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
         box-shadow: 0 10px 30px rgba(28, 39, 31, 0.06);
+    }
+
+    .main .block-container {
+        padding-bottom: 10rem !important;
     }
 
     [class*="st-key-ask-dock"] [data-testid="stMarkdownContainer"],
