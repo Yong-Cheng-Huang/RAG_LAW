@@ -92,10 +92,19 @@ st.markdown("""
         border-right: 1px solid var(--line);
     }
 
+    [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        padding-top: 0.6rem;
+    }
+
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
     [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] p {
         color: var(--ink);
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        margin: 0.18rem 0;
+        line-height: 1.45;
     }
 
     [data-testid="stSidebar"] h1,
@@ -105,14 +114,75 @@ st.markdown("""
         color: var(--green-dark);
     }
 
+    [data-testid="stSidebar"] h1 {
+        margin: 0 0 0.18rem;
+        font-size: 1.45rem;
+        line-height: 1.2;
+    }
+
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        margin: 0.55rem 0 0.25rem;
+        font-size: 1rem;
+        line-height: 1.25;
+    }
+
+    [data-testid="stSidebar"] hr {
+        margin: 0.55rem 0;
+    }
+
     [data-testid="stSidebar"] .stAlert {
+        display: flex;
+        align-items: center;
+        min-height: 42px;
         border-radius: 8px;
         border: 1px solid rgba(37, 106, 77, 0.22);
-        background: rgba(37, 106, 77, 0.08);
+        background: rgba(37, 106, 77, 0.08) !important;
+        background-color: rgba(37, 106, 77, 0.08) !important;
+        padding: 0.45rem 0.6rem;
+    }
+
+    [data-testid="stSidebar"] .stAlert > div,
+    [data-testid="stSidebar"] .stAlert [data-testid="stMarkdownContainer"],
+    [data-testid="stSidebar"] .stAlert [data-testid="stMarkdownContainer"] p {
+        display: flex;
+        align-items: center;
+        min-height: 100%;
+        margin: 0;
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        margin-top: 0.12rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] {
+        margin: 0.15rem 0 0.45rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+        min-height: 118px;
+        padding: 0.65rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] ul {
+        margin: 0.25rem 0 0.45rem;
+        padding-left: 1.1rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li {
+        margin: 0.08rem 0;
+        line-height: 1.35;
+    }
+
+    [data-testid="stSidebar"] .stButton {
+        margin: 0.2rem 0;
     }
 
     [data-testid="stSidebarHeader"] {
-        min-height: 56px;
+        min-height: 42px;
     }
 
     [data-testid="stSidebarCollapseButton"],
@@ -855,7 +925,7 @@ with st.sidebar:
     sources = safe_sources()
     if sources:
         for src in sources:
-            st.markdown(f"- `{src}`")
+            st.markdown(f"- {src}")
     else:
         st.caption("知識庫目前為空，請上傳 PDF 文件。")
 
