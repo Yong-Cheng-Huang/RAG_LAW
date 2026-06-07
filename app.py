@@ -183,7 +183,8 @@ st.markdown("""
     .hero {
         position: relative;
         overflow: hidden;
-        padding: clamp(1.2rem, 2.6vw, 2.3rem);
+        min-height: 250px;
+        padding: clamp(1.55rem, 3vw, 2.8rem);
         border: 1px solid var(--line);
         border-radius: 8px;
         background:
@@ -665,7 +666,8 @@ st.markdown("""
         }
 
         .hero {
-            padding: 0.95rem;
+            min-height: 230px;
+            padding: 1.2rem;
         }
 
         .info-grid {
