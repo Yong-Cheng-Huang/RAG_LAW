@@ -391,6 +391,15 @@ st.markdown("""
         ) !important;
     }
 
+    .stChatMessage [data-testid="stMarkdownContainer"] > blockquote,
+    [data-testid="stMarkdownContainer"] > blockquote {
+        margin: 1rem 0;
+        padding: 0.15rem 0 0.15rem 1rem;
+        border-left: 3px solid #7f8782 !important;
+        background: rgba(127, 135, 130, 0.08);
+        color: var(--ink);
+    }
+
     .stChatMessage [data-testid="stMarkdownContainer"] table {
         border-collapse: collapse;
         width: 100%;
