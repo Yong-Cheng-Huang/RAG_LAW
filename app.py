@@ -132,8 +132,6 @@ st.markdown("""
     }
 
     [data-testid="stSidebar"] .stAlert {
-        display: flex;
-        align-items: center;
         min-height: 42px;
         border-radius: 8px;
         border: 1px solid rgba(37, 106, 77, 0.22);
@@ -145,13 +143,14 @@ st.markdown("""
     [data-testid="stSidebar"] .stAlert > div,
     [data-testid="stSidebar"] .stAlert [data-testid="stMarkdownContainer"],
     [data-testid="stSidebar"] .stAlert [data-testid="stMarkdownContainer"] p {
-        display: flex;
-        align-items: center;
-        min-height: 100%;
+        display: block;
+        min-height: 0;
         margin: 0;
         background: transparent !important;
         background-color: transparent !important;
         background-image: none !important;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
