@@ -361,7 +361,8 @@ st.markdown("""
     }
 
     [class*="st-key-chat-history"],
-    [class*="st-key-chat_history"] {
+    [class*="st-key-chat_history"],
+    [class*="st-key-live_chat_turn"] {
         margin-top: 1.6rem;
     }
 
@@ -916,23 +917,24 @@ if prompt and prompt.strip():
     if not has_data:
         st.warning("⚠️ 知識庫為空，請先在左側上傳 PDF 文件。")
     else:
-        # 顯示使用者訊息
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        with st.container(key="live_chat_turn"):
+            # 顯示使用者訊息
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-        # 取得 AI 回答
-        with st.chat_message("assistant"):
-            with st.spinner("思考中..."):
-                try:
-                    response = ask(prompt)
-                    st.session_state.chat_history.append(
-                        {"role": "assistant", "content": response}
-                    )
-                    st.rerun()
-                except Exception as e:
-                    error_msg = f"❌ 生成回答失敗: {e}"
-                    st.session_state.chat_history.append(
-                        {"role": "assistant", "content": error_msg}
-                    )
-                    st.rerun()
+            # 取得 AI 回答
+            with st.chat_message("assistant"):
+                with st.spinner("思考中..."):
+                    try:
+                        response = ask(prompt)
+                        st.session_state.chat_history.append(
+                            {"role": "assistant", "content": response}
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        error_msg = f"❌ 生成回答失敗: {e}"
+                        st.session_state.chat_history.append(
+                            {"role": "assistant", "content": error_msg}
+                        )
+                        st.rerun()
