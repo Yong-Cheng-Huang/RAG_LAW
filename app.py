@@ -825,7 +825,9 @@ with st.sidebar:
 # ── 主畫面 ───────────────────────────────────────────────
 sources = safe_sources()
 source_count = len(sources)
-history_count = len(st.session_state.chat_history)
+history_count = sum(
+    1 for msg in st.session_state.chat_history if msg.get("role") == "user"
+)
 source_label = f"{source_count} 份來源文件" if source_count else "尚未建立來源"
 
 st.markdown(
