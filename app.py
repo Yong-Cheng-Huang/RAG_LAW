@@ -82,7 +82,7 @@ st.markdown("""
 
     .main .block-container {
         max-width: 1180px;
-        padding: 3.5rem 2.5rem 10rem;
+        padding: 2.35rem 2.5rem 10rem;
     }
 
     [data-testid="stSidebar"] {
@@ -183,7 +183,7 @@ st.markdown("""
     .hero {
         position: relative;
         overflow: hidden;
-        padding: clamp(1.45rem, 3.4vw, 3rem);
+        padding: clamp(1.2rem, 2.6vw, 2.3rem);
         border: 1px solid var(--line);
         border-radius: 8px;
         background:
@@ -247,29 +247,8 @@ st.markdown("""
         display: grid;
         grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.75fr);
         gap: 1.1rem;
-        margin-top: 1.25rem;
-        align-items: end;
-    }
-
-    .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 1.05rem;
-    }
-
-    .pill {
-        display: inline-flex;
+        margin-top: 0.75rem;
         align-items: center;
-        min-height: 36px;
-        padding: 0.45rem 0.8rem;
-        border: 1px solid rgba(21, 32, 24, 0.14);
-        border-radius: 999px;
-        background: rgba(255, 255, 250, 0.74);
-        color: #27342b;
-        font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
-        font-size: 0.88rem;
-        font-weight: 700;
     }
 
     .signal-panel {
@@ -673,11 +652,11 @@ st.markdown("""
 
     @media (max-width: 820px) {
         .main .block-container {
-            padding: 2rem 1rem 10rem;
+            padding: 1.35rem 1rem 10rem;
         }
 
         .hero {
-            padding: 1.1rem;
+            padding: 0.95rem;
         }
 
         .info-grid {
@@ -842,11 +821,6 @@ st.markdown(
                     將 PDF 轉成可追溯的知識庫，結合法規條文切割、案例表格重組、
                     Hybrid Search 與 MultiQuery 檢索，讓每一次回答都回到可驗證的文件脈絡。
                 </p>
-                <div class="hero-actions">
-                    <span class="pill">{mode_label}</span>
-                    <span class="pill">LLM · {llm_name}</span>
-                    <span class="pill">Embedding · {emb_display}</span>
-                </div>
             </div>
             <aside class="signal-panel">
                 <div class="label">Knowledge Base</div>
