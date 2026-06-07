@@ -8,10 +8,12 @@ from pathlib import Path
 # Python 3.14+ 不再自動將腳本目錄加入 sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import json
 import streamlit as st
 import tempfile
 import os
 import time
+import uuid
 
 from config import settings
 from vector_store import ingest_pdf, get_all_sources, delete_collection
@@ -677,9 +679,73 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session State 初始化 ─────────────────────────────────
-if "chat_history" not in st.session_state:
+CHAT_HISTORY_DIR = Path(os.getenv("CHAT_HISTORY_DIR", ".chat_sessions"))
+
+
+def get_chat_session_id() -> str:
+    """取得目前瀏覽器頁籤的對話 session id，刷新頁面後仍可沿用。"""
+    if "chat_session_id" in st.session_state:
+        return st.session_state.chat_session_id
+
+    raw_session_id = st.query_params.get("chat_session", "")
+    if isinstance(raw_session_id, list):
+        raw_session_id = raw_session_id[0] if raw_session_id else ""
+
+    session_id = str(raw_session_id)
+    if len(session_id) != 32 or not all(c in "0123456789abcdef" for c in session_id):
+        session_id = uuid.uuid4().hex
+        st.query_params["chat_session"] = session_id
+
+    st.session_state.chat_session_id = session_id
+    return session_id
+
+
+def get_chat_history_path(session_id: str) -> Path:
+    CHAT_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    return CHAT_HISTORY_DIR / f"{session_id}.json"
+
+
+def load_chat_history(session_id: str) -> list[dict[str, str]]:
+    path = get_chat_history_path(session_id)
+    if not path.exists():
+        return []
+
+    try:
+        raw_history = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    history: list[dict[str, str]] = []
+    for msg in raw_history:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if role in {"user", "assistant"} and isinstance(content, str):
+            history.append({"role": role, "content": content})
+    return history
+
+
+def save_chat_history() -> None:
+    session_id = get_chat_session_id()
+    path = get_chat_history_path(session_id)
+    path.write_text(
+        json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def clear_chat_history() -> None:
     st.session_state.chat_history = []
+    path = get_chat_history_path(get_chat_session_id())
+    if path.exists():
+        path.unlink()
+
+
+# ── Session State 初始化 ─────────────────────────────────
+chat_session_id = get_chat_session_id()
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = load_chat_history(chat_session_id)
 if "ingested_files" not in st.session_state:
     st.session_state.ingested_files = []
 if "uploader_key" not in st.session_state:
@@ -799,7 +865,7 @@ with st.sidebar:
     if st.button("🗑️ 清空知識庫", use_container_width=True, type="secondary"):
         try:
             delete_collection()
-            st.session_state.chat_history = []
+            clear_chat_history()
             st.session_state.ingested_files = []
             st.success("已清空知識庫與對話記錄。")
             st.rerun()
@@ -808,7 +874,7 @@ with st.sidebar:
 
     # 清空對話
     if st.button("🔄 清空對話記錄", use_container_width=True):
-        st.session_state.chat_history = []
+        clear_chat_history()
         st.rerun()
 
 
@@ -904,6 +970,7 @@ if prompt and prompt.strip():
         with st.container(key="live_chat_turn"):
             # 顯示使用者訊息
             st.session_state.chat_history.append({"role": "user", "content": prompt})
+            save_chat_history()
             with st.chat_message("user"):
                 st.markdown(prompt)
 
@@ -915,10 +982,12 @@ if prompt and prompt.strip():
                         st.session_state.chat_history.append(
                             {"role": "assistant", "content": response}
                         )
+                        save_chat_history()
                         st.rerun()
                     except Exception as e:
                         error_msg = f"❌ 生成回答失敗: {e}"
                         st.session_state.chat_history.append(
                             {"role": "assistant", "content": error_msg}
                         )
+                        save_chat_history()
                         st.rerun()
