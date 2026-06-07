@@ -392,12 +392,11 @@ st.markdown("""
         ) !important;
     }
 
-    .stChatMessage [data-testid="stMarkdownContainer"] > blockquote,
-    [data-testid="stMarkdownContainer"] > blockquote {
+    .stChatMessage [data-testid="stMarkdownContainer"] blockquote {
         margin: 1rem 0;
-        padding: 0.15rem 0 0.15rem 1rem;
-        border-left: 3px solid #7f8782 !important;
-        background: rgba(127, 135, 130, 0.08);
+        padding: 0.55rem 0.75rem 0.55rem 1rem;
+        border-left: 3px solid #a9b0ac !important;
+        background: rgba(127, 135, 130, 0.055);
         color: var(--ink);
     }
 
