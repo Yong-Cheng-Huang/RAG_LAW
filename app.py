@@ -40,13 +40,13 @@ st.markdown("""
         --copper: #b45f32;
         --gold: #c79a3a;
         --blue: #1d4f73;
-        --chat-input-bg: #f7faf6;
-        --chat-input-border: #bfd8cc;
+        --chat-input-bg: #dde3df;
+        --chat-input-border: #89958e;
         --chat-input-text: #1b2a24;
-        --chat-input-placeholder: #6f8178;
+        --chat-input-placeholder: #55615b;
         --chat-input-button: #0f4a3a;
         --chat-input-focus: #2f7d62;
-        --chat-input-focus-shadow: rgba(47, 125, 98, 0.18);
+        --chat-input-focus-shadow: rgba(85, 97, 91, 0.28);
         --shadow: 0 18px 45px rgba(28, 39, 31, 0.10);
     }
 
