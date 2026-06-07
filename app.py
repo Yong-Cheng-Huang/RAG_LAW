@@ -160,11 +160,30 @@ st.markdown("""
 
     [data-testid="stSidebar"] [data-testid="stFileUploader"] {
         margin: 0.15rem 0 0.45rem;
+        background: rgba(37, 106, 77, 0.08) !important;
+        background-color: rgba(37, 106, 77, 0.08) !important;
+        background-image: none !important;
+        color: var(--green-dark) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        color: var(--green-dark) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        color: var(--green-dark) !important;
     }
 
     [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
         min-height: 118px;
         padding: 0.65rem;
+        border-color: rgba(37, 106, 77, 0.22) !important;
     }
 
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] ul {
@@ -179,6 +198,76 @@ st.markdown("""
 
     [data-testid="stSidebar"] .stButton {
         margin: 0.2rem 0;
+    }
+
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] .stButton > button *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"],
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] *,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button * {
+        background-image: none !important;
+        color: var(--green-dark) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"],
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+        background: rgba(37, 106, 77, 0.08) !important;
+        background-color: rgba(37, 106, 77, 0.08) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] *,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button * {
+        background: transparent !important;
+        background-color: transparent !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"],
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+        border-color: rgba(37, 106, 77, 0.22) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] .stButton > button:hover *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover *,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover * {
+        background-image: none !important;
+        color: var(--green) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover {
+        background: rgba(37, 106, 77, 0.12) !important;
+        background-color: rgba(37, 106, 77, 0.12) !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover *,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover *,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover * {
+        background: transparent !important;
+        background-color: transparent !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover,
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] button:hover {
+        border-color: var(--green) !important;
     }
 
     [data-testid="stSidebarHeader"] {
@@ -932,7 +1021,7 @@ with st.sidebar:
     st.markdown("---")
 
     # 清空知識庫
-    if st.button("🗑️ 清空知識庫", use_container_width=True, type="secondary"):
+    if st.button("⌫ 清空知識庫", use_container_width=True, type="secondary"):
         try:
             delete_collection()
             clear_chat_history()
@@ -943,7 +1032,7 @@ with st.sidebar:
             st.error(f"清空失敗: {e}")
 
     # 清空對話
-    if st.button("🔄 清空對話記錄", use_container_width=True):
+    if st.button("↺ 清空對話記錄", use_container_width=True):
         clear_chat_history()
         st.rerun()
 
