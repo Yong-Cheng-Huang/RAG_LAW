@@ -383,17 +383,19 @@ st.markdown("""
         border: 1px solid rgba(37, 106, 77, 0.14);
     }
 
-    .stChatMessage [data-testid="stSpinner"],
-    .stChatMessage [data-testid="stSpinner"] > div,
-    .stChatMessage [data-testid="stSpinner"] span {
-        background: transparent !important;
-        color: var(--muted) !important;
+    .stChatMessage [data-testid="stSpinner"] {
+        color: var(--green-dark) !important;
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
+        font-weight: 800;
     }
 
-    .stChatMessage [data-testid="stSpinner"] svg {
-        color: var(--green) !important;
-        fill: var(--green) !important;
+    .stSpinner [data-testid="stSpinnerIcon"],
+    [data-testid="stSpinner"] [data-testid="stSpinnerIcon"] {
+        color: var(--green-dark) !important;
+        border-color: rgba(18, 63, 49, 0.18) !important;
+        border-top-color: var(--green-dark) !important;
+        border-right-color: var(--green-dark) !important;
+        opacity: 1 !important;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] hr {
