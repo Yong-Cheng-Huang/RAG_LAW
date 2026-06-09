@@ -54,6 +54,12 @@ st.markdown("""
 
     html, body {
         font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", "Noto Serif TC", Georgia, serif;
+        background:
+            linear-gradient(90deg, rgba(21, 32, 24, 0.035) 1px, transparent 1px),
+            linear-gradient(180deg, rgba(21, 32, 24, 0.03) 1px, transparent 1px),
+            linear-gradient(118deg, rgba(37, 106, 77, 0.12) 0%, transparent 34%),
+            linear-gradient(145deg, #f8f9f5 0%, #eef4ef 48%, #f7f4ed 100%);
+        background-size: 44px 44px, 44px 44px, auto, auto;
     }
 
     .material-icons,
@@ -84,7 +90,7 @@ st.markdown("""
 
     .main .block-container {
         max-width: 1180px;
-        padding: 2.35rem 2.5rem 10rem;
+        padding: 2.35rem 2.5rem 12rem;
     }
 
     [data-testid="stSidebar"] {
@@ -608,6 +614,9 @@ st.markdown("""
         color: var(--ink) !important;
     }
 
+    .stBottom,
+    .stBottom > div,
+    .stBottom > div > div,
     [data-testid="stBottomBlockContainer"],
     [data-testid="stBottomBlockContainer"] > div {
         background: transparent !important;
@@ -617,18 +626,46 @@ st.markdown("""
         pointer-events: none;
     }
 
-    .st-emotion-cache-hzygls.eqt0gmo3,
-    [class*="st-emotion-cache-hzygls"].eqt0gmo3,
-    [data-testid="stBottomBlockContainer"] .st-emotion-cache-hzygls.eqt0gmo3,
-    [data-testid="stBottomBlockContainer"] [class*="st-emotion-cache-hzygls"] {
+    .stBottom::before,
+    .stBottom::after,
+    .stBottom > div::before,
+    .stBottom > div::after {
+        display: none !important;
         background: transparent !important;
         background-color: transparent !important;
         background-image: none !important;
         box-shadow: none !important;
+        content: none !important;
     }
 
+    .stBottom * {
+        box-shadow: none !important;
+    }
+
+    [data-testid="stBottomBlockContainer"] > div,
+    [data-testid="stBottomBlockContainer"] [data-testid="stVerticalBlock"],
+    [data-testid="stBottomBlockContainer"] [data-testid="stVerticalBlock"] > div {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        pointer-events: none;
+    }
+
+    .stBottom [data-testid="stChatInput"],
     [data-testid="stBottomBlockContainer"] [data-testid="stChatInput"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
         pointer-events: auto;
+    }
+
+    [data-testid="stChatInput"] > div {
+        background: var(--chat-input-bg) !important;
+        background-color: var(--chat-input-bg) !important;
+        background-image: none !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
     }
 
     [data-testid="stChatInput"] [data-baseweb="textarea"],
@@ -644,9 +681,7 @@ st.markdown("""
 
     [data-testid="stChatInput"] [data-baseweb="textarea"],
     [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
-    [data-testid="stChatInput"] [data-baseweb="textarea"] > div > div,
-    [data-testid="stChatInput"] .st-emotion-cache-jchovf.e1vtqrcf1,
-    [data-testid="stChatInput"] [class*="st-emotion-cache-jchovf"] {
+    [data-testid="stChatInput"] [data-baseweb="textarea"] > div > div {
         background: var(--chat-input-bg) !important;
         background-color: var(--chat-input-bg) !important;
         background-image: none !important;
@@ -662,9 +697,7 @@ st.markdown("""
 
     [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"],
     [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"] > div,
-    [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"] > div > div,
-    [data-testid="stChatInput"]:focus-within .st-emotion-cache-jchovf.e1vtqrcf1,
-    [data-testid="stChatInput"]:focus-within [class*="st-emotion-cache-jchovf"] {
+    [data-testid="stChatInput"]:focus-within [data-baseweb="textarea"] > div > div {
         border-color: var(--chat-input-focus) !important;
         background: var(--chat-input-bg) !important;
         background-color: var(--chat-input-bg) !important;
@@ -830,7 +863,7 @@ st.markdown("""
 
     @media (max-width: 820px) {
         .main .block-container {
-            padding: 1.35rem 1rem 10rem;
+            padding: 1.35rem 1rem 12rem;
         }
 
         .hero {
