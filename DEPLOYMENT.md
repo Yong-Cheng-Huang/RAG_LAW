@@ -36,7 +36,7 @@ Streamlit Community Cloud 不保證本地檔案儲存會永久保留，因此 `c
    EMBEDDING_MODE = "gemini"
 
    GEMINI_API_KEY = "your_gemini_api_key"
-   GEMINI_MODEL = "gemini-2.0-flash"
+   GEMINI_MODEL = "gemini-3.1-flash-lite"
    GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 
    CHROMA_PERSIST_DIR = "./chroma_db"

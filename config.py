@@ -11,11 +11,11 @@ load_dotenv()
 
 class Settings:
     # ── LLM ──────────────────────────────────────────────
-    LLM_MODE: str = os.getenv("LLM_MODE", "ollama")  # "ollama" | "openai" | "gemini"
+    LLM_MODE: str = os.getenv("LLM_MODE", "gemini")  # "ollama" | "openai" | "gemini"
 
     # Ollama
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
     # MultiQueryRetriever 專用 model（留空則與 OLLAMA_MODEL 相同）
     MULTIQUERY_MODEL: str = os.getenv("MULTIQUERY_MODEL", "")
 
@@ -24,14 +24,14 @@ class Settings:
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     # Gemini LLM
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     # ── Embedding ────────────────────────────────────────
     # EMBEDDING_MODE: "ollama" | "gemini"
     EMBEDDING_MODE: str = os.getenv("EMBEDDING_MODE", "ollama")
 
-    # Ollama embedding（預設 bge-m3）
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "bge-m3")
+    # Ollama embedding（預設 nomic-embed-text）
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 
     # Gemini Embedding
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

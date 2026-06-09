@@ -154,7 +154,7 @@ app.py
 LLM_MODE = "gemini"
 EMBEDDING_MODE = "gemini"
 GEMINI_API_KEY = "your_gemini_api_key"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 ```
 
@@ -208,10 +208,10 @@ GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 | 參數 | 預設值 | 說明 |
 |---|---:|---|
 | `LLM_MODE` | `ollama` | `ollama`、`openai` 或 `gemini` |
-| `OLLAMA_MODEL` | `llama3` | Ollama 主生成模型 |
+| `OLLAMA_MODEL` | `gemma4:e2b` | Ollama 主生成模型 |
 | `MULTIQUERY_MODEL` | 空字串 | MultiQuery 專用模型；空值代表沿用主模型 |
 | `EMBEDDING_MODE` | `ollama` | `ollama` 或 `gemini` |
-| `EMBEDDING_MODEL` | `bge-m3` | Ollama embedding 模型 |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama embedding 模型 |
 | `CHUNK_SIZE` | `1000` | chunk 大小 |
 | `CHUNK_OVERLAP` | `200` | 一般文件與長條文二次切割的重疊字元數 |
 | `RETRIEVER_K` | `5` | 一般 retriever 候選文件數 |

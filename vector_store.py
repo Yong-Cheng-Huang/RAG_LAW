@@ -63,7 +63,7 @@ _CJK_BIG_UNITS = {"萬": 10000, "亿": 100000000, "億": 100000000}
 
 def get_embeddings() -> OllamaEmbeddings | GoogleGenerativeAIEmbeddings:
     """取得 Embedding 函數。
-    EMBEDDING_MODE=ollama → Ollama (bge-m3 等)
+    EMBEDDING_MODE=ollama → Ollama
     EMBEDDING_MODE=gemini → Google Gemini Embedding 2
     """
     if settings.EMBEDDING_MODE == "gemini":
