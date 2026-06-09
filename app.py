@@ -497,6 +497,10 @@ st.markdown("""
         background: linear-gradient(135deg, rgba(37, 106, 77, 0.30), rgba(199, 154, 58, 0.24), rgba(29, 79, 115, 0.18));
     }
 
+    .chat-shell.empty-state {
+        margin: 1.85rem 0 1.35rem;
+    }
+
     .chat-inner {
         padding: 1.1rem 1.2rem;
         border-radius: 7px;
@@ -504,6 +508,44 @@ st.markdown("""
         color: var(--muted);
         font-family: ui-sans-serif, "Noto Sans TC", "Helvetica Neue", sans-serif;
         font-size: 0.95rem;
+    }
+
+    .chat-shell.empty-state .chat-inner,
+    .chat-shell.empty-state .chat-inner code {
+        color: #34453c !important;
+    }
+
+    .chat-shell.empty-state .chat-inner code {
+        background: rgba(37, 106, 77, 0.08) !important;
+        background-color: rgba(37, 106, 77, 0.08) !important;
+        border: 1px solid rgba(37, 106, 77, 0.18);
+        border-radius: 4px;
+        padding: 0.08em 0.35em;
+    }
+
+    .main [data-testid="stAlert"],
+    [data-testid="stMainBlockContainer"] [data-testid="stAlert"] {
+        margin: 1.15rem 0 1.35rem;
+        color: #3f3418 !important;
+    }
+
+    .main [data-testid="stAlert"] [data-testid="stAlertContainer"],
+    [data-testid="stMainBlockContainer"] [data-testid="stAlertContainer"] {
+        border: 1px solid rgba(176, 129, 30, 0.30);
+        border-radius: 8px;
+        background: rgba(255, 246, 188, 0.62) !important;
+        background-color: rgba(255, 246, 188, 0.62) !important;
+        color: #3f3418 !important;
+    }
+
+    .main [data-testid="stAlert"] *,
+    .main [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
+    .main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMainBlockContainer"] [data-testid="stAlert"] *,
+    [data-testid="stMainBlockContainer"] [data-testid="stAlertContainer"] *,
+    [data-testid="stMainBlockContainer"] [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
+    [data-testid="stMainBlockContainer"] [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
+        color: #3f3418 !important;
     }
 
     [class*="st-key-chat-history"],
@@ -1132,7 +1174,7 @@ st.markdown(
 if not sources:
     st.markdown(
         """
-        <div class="chat-shell">
+        <div class="chat-shell empty-state">
             <div class="chat-inner">
                 上傳 PDF 後即可開始提問。若要展示既有 demo 知識庫，請確認部署環境包含
                 <code>chroma_db</code> 並使用相同 Embedding 設定。
