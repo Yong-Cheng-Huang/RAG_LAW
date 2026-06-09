@@ -510,8 +510,17 @@ st.markdown("""
         border: 1px solid rgba(21, 32, 24, 0.10);
         border-radius: 8px;
         background: rgba(255, 255, 250, 0.82);
+        background-color: rgba(255, 255, 250, 0.82) !important;
+        background-image: none !important;
         box-shadow: 0 10px 24px rgba(28, 39, 31, 0.055);
         padding-right: 1.25rem;
+    }
+
+    .stChatMessage [data-testid="stChatMessageContent"],
+    .stChatMessage [data-testid="stMarkdownContainer"] {
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
     }
 
     .stChatMessage [data-testid="stMarkdownContainer"] {
